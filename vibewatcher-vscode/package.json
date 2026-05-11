@@ -1,0 +1,60 @@
+{
+  "name": "vibewatcher",
+  "displayName": "VibeWatcher",
+  "description": "Claude Code execution state monitor and notification system",
+  "version": "0.1.0",
+  "publisher": "vibewatcher",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": ["Other"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "panel": [
+        {
+          "id": "vibewatcher.panel",
+          "title": "VibeWatcher",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "vibewatcher.panel": [
+        {
+          "id": "vibewatcher.taskList",
+          "name": "Tasks"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "vibewatcher.showOutput",
+        "title": "View Output"
+      },
+      {
+        "command": "vibewatcher.stopTask",
+        "title": "Stop Task"
+      },
+      {
+        "command": "vibewatcher.copyTaskId",
+        "title": "Copy TaskId"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.80.0",
+    "@types/ws": "^8.5.10",
+    "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "uuid": "^9.0.0",
+    "ws": "^8.14.2"
+  }
+}
