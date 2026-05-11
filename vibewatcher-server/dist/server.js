@@ -54,7 +54,7 @@ class VibeWatcherServer {
             try {
                 this.wss = new ws_1.WebSocketServer({ port: this.port });
                 this.wss.on('listening', () => {
-                    console.log(`[VibeWatcher Server] Running on ws://localhost:${this.port}`);
+                    console.log('[VibeWatcher Server] Running on ws://localhost:' + this.port);
                     resolve();
                 });
                 this.wss.on('error', (error) => {
@@ -67,13 +67,13 @@ class VibeWatcherServer {
                 });
                 this.wss.on('connection', (ws) => {
                     this.clients.add(ws);
-                    console.log(`[VibeWatcher Server] Client connected (${this.clients.size} total)`);
+                    console.log('[VibeWatcher Server] Client connected (' + this.clients.size + ' total)');
                     ws.on('message', (data) => {
                         this.handleMessage(ws, data.toString());
                     });
                     ws.on('close', () => {
                         this.clients.delete(ws);
-                        console.log(`[VibeWatcher Server] Client disconnected (${this.clients.size} total)`);
+                        console.log('[VibeWatcher Server] Client disconnected (' + this.clients.size + ' total)');
                     });
                 });
             }
@@ -88,8 +88,10 @@ class VibeWatcherServer {
             reject(new Error('Failed to find available port'));
             return;
         }
-        console.log(`[VibeWatcher Server] Port ${this.port} in use, trying ${nextPort}`);
-        this.wss?.close();
+        console.log('[VibeWatcher Server] Port ' + this.port + ' in use, trying ' + nextPort);
+        if (this.wss) {
+            this.wss.close();
+        }
         this.wss = new ws_1.WebSocketServer({ port: nextPort });
         this.port = nextPort;
         this.wss.on('listening', resolve);
@@ -100,23 +102,23 @@ class VibeWatcherServer {
             const message = JSON.parse(data);
             switch (message.type) {
                 case 'TASK_CREATED': {
-                    const { taskId } = message.payload;
-                    this.taskManager.createTask(taskId);
+                    const payload = message.payload;
+                    this.taskManager.createTask(payload.taskId);
                     break;
                 }
                 case 'TASK_STATUS': {
-                    const { taskId, status } = message.payload;
-                    this.taskManager.updateStatus(taskId, status);
+                    const payload = message.payload;
+                    this.taskManager.updateStatus(payload.taskId, payload.status);
                     break;
                 }
                 case 'TASK_OUTPUT': {
-                    const { taskId, type, data } = message.payload;
-                    this.taskManager.appendOutput(taskId, type, data);
+                    const payload = message.payload;
+                    this.taskManager.appendOutput(payload.taskId, payload.type, payload.data);
                     break;
                 }
                 case 'TASK_EXIT': {
-                    const { taskId, exitCode } = message.payload;
-                    this.taskManager.exitTask(taskId, exitCode);
+                    const payload = message.payload;
+                    this.taskManager.exitTask(payload.taskId, payload.exitCode);
                     break;
                 }
                 case 'LIST_TASKS': {
@@ -142,7 +144,9 @@ class VibeWatcherServer {
         });
     }
     stop() {
-        this.wss?.close();
+        if (this.wss) {
+            this.wss.close();
+        }
         this.wss = null;
     }
 }
