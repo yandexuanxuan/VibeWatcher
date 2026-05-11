@@ -1,0 +1,34 @@
+#!/bin/bash
+# VibeWatcher PATH Wrapper for claude-code
+# Place this script in a directory that comes before claude-code in PATH
+
+CLAUDE_CODE_BIN=""
+
+# Find the real claude-code binary
+for p in $(echo $PATH | tr ':' '\n'); do
+  if [ -x "$p/claude-code" ] && [ "$p" != "$(dirname "$0")" ]; then
+    CLAUDE_CODE_BIN="$p/claude-code"
+    break
+  fi
+done
+
+# Fallback: common locations
+if [ -z "$CLAUDE_CODE_BIN" ]; then
+  for path in "/usr/local/bin/claude-code" "$HOME/.local/bin/claude-code" "$HOME/.npm-global/bin/claude-code"; do
+    if [ -x "$path" ]; then
+      CLAUDE_CODE_BIN="$path"
+      break
+    fi
+  done
+fi
+
+if [ -z "$CLAUDE_CODE_BIN" ]; then
+  echo "Error: claude-code not found" >&2
+  exit 1
+fi
+
+# Get the directory where this wrapper is located
+WRAPPER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Run vibewatch with the real command
+exec "$WRAPPER_DIR/vibewatch" "$CLAUDE_CODE_BIN" "$@"
