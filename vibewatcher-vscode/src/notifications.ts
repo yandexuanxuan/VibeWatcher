@@ -36,7 +36,6 @@ export class NotificationManager {
   private playSound(): void {
     // VSCode doesn't have a built-in sound API
     // This is a placeholder - users can configure their own notification sounds
-    env.beep();
   }
 
   clear(): void {
