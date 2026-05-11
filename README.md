@@ -173,3 +173,4 @@ Step 4
 VibeWatcher v0.1 是一个“Claude Code 执行进程的 wrapper + 状态机 + VSCode UI通知插件”，不依赖 VSCode terminal 监听，而是通过控制执行入口实现可观测性。
 
 # VibeWatcher
+# VibeWatcher
