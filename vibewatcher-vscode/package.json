@@ -3,26 +3,29 @@
   "displayName": "VibeWatcher",
   "description": "Claude Code execution state monitor and notification system",
   "version": "0.1.0",
-  "publisher": "vibewatcher",
+  "publisher": "vibewatcher-dev",
   "engines": {
     "vscode": "^1.80.0"
   },
   "categories": [
     "Other"
   ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "viewsContainers": {
-      "panel": [
+      "activitybar": [
         {
-          "id": "vibewatcher.panel",
+          "id": "vibewatcher-explorer",
           "title": "VibeWatcher",
           "icon": "media/icon.svg"
         }
       ]
     },
     "views": {
-      "vibewatcher.panel": [
+      "vibewatcher-explorer": [
         {
           "id": "vibewatcher.taskList",
           "name": "Tasks"
@@ -41,6 +44,10 @@
       {
         "command": "vibewatcher.copyTaskId",
         "title": "Copy TaskId"
+      },
+      {
+        "command": "vibewatcher.toggleMiniPanel",
+        "title": "Toggle Mini Output Panel"
       }
     ]
   },

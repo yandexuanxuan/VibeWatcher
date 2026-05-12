@@ -1,0 +1,12 @@
+{
+  "name": "vibewatcher-workspace",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Claude Code execution state monitor and notification system",
+  "scripts": {
+    "build": "cd vibewatcher-cli && npm run build && cd ../vibewatcher-server && npm run build && cd ../vibewatcher-vscode && npm run compile",
+    "test": "cd vibewatcher-cli && npm test && cd ../vibewatcher-server && npm test",
+    "clean": "rm -rf vibewatcher-cli/dist vibewatcher-server/dist vibewatcher-vscode/out",
+    "setup": "bash setup-auto.sh"
+  }
+}

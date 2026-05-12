@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+vibewatcher-cli/node_modules/
+vibewatcher-server/node_modules/
+vibewatcher-vscode/node_modules/
+
+# Compiled output
+vibewatcher-cli/dist/
+vibewatcher-server/dist/
+vibewatcher-vscode/out/
+
+# VSCode extension package
+*.vsix
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+
+# Test coverage
+coverage/
+
+# Temporary files
+*.tmp
+*.temp

@@ -1,176 +1,207 @@
-🧩 VibeWatcher v0.1（可开发版本 PRD）
-1. 产品定义（收敛后）
-产品名称
-VibeWatcher
-产品本质（重新定义）
-一个“Claude Code 执行进程的状态监控器 + 事件通知系统”，通过 CLI Wrapper 接管执行入口，在 VSCode 中展示运行状态并触发提醒。
+# VibeWatcher v0.2
 
-2. 核心前提（关键约束）
-必须接受一个现实：
-❗ 不能监听 VSCode terminal，只能控制 Claude Code 执行入口
-因此系统形态变为：
-🟢 CLI Wrapper + VSCode Extension（双层结构）
+Claude Code 执行进程的状态监控器 + 事件通知系统。通过 CLI Wrapper 接管执行入口，在 VSCode 中展示运行状态并触发桌面通知。
 
-3. 系统架构（可实现）
+## 功能特性
+
+- **状态栏指示器** — 🟢 运行中 / 🟡 等待输入 / 🔵 完成 / 🔴 错误，点击切换迷你输出面板
+- **任务列表** — VSCode 侧边栏实时展示所有任务，支持运行时长、预计剩余时间和最后输出
+- **桌面通知** — 任务完成、出错、等待输入时弹出系统通知
+- **一键终止** — 从 VSCode 点击停止正在运行的任务
+- **Prompt 检测** — 自动识别 Claude Code 的确认提示 (`proceed?`, `y/n`, `continue?` 等)
+- **执行摘要生成** — 任务完成后自动生成 Markdown 摘要（文件变更、TODO、关键步骤）
+- **预测耗时** — 基于历史任务预测运行时长和剩余时间
+- **迷你输出面板** — 点击状态栏打开实时输出滚动面板
+- **移动端通知** — 支持 Server酱（微信）/ Telegram Bot / Slack Webhook 推送
+
+## 系统架构
+
+```
 ┌──────────────────────────────┐
-│        VibeWatcher CLI       │
-│  (Claude Code Execution)     │
+│       VibeWatcher CLI         │
+│  vibewatcher-cli/            │
 │                              │
 │  spawn claude-code process   │
-│  capture stdout/stderr       │
-│  emit structured events      │
+│  capture stdout/stderr        │
+│  emit WebSocket events        │
 └─────────────┬────────────────┘
-              │ WebSocket / IPC
+              │ WebSocket (ws://localhost:9234)
               ↓
 ┌──────────────────────────────┐
-│   VSCode Extension Client    │
+│      Event Server             │
+│  vibewatcher-server/         │
 │                              │
-│  状态栏 UI                   │
-│  任务列表                   │
-│  通知系统                   │
+│  TaskManager + StateStore    │
+│  broadcast to all clients     │
+└─────────────┬────────────────┘
+              │
+              ↓
+┌──────────────────────────────┐
+│   VSCode Extension           │
+│  vibewatcher-vscode/        │
+│                              │
+│  StatusBar + TreeView       │
+│  Desktop Notifications       │
 └──────────────────────────────┘
+```
 
-4. MVP功能范围（严格收敛）
-4.1 CLI Wrapper（核心能力）
-功能
-● 启动 Claude Code 任务
-● 捕获 stdout / stderr
-● 转换为标准事件流
-● 上报状态
-命令形式
-vibewatch run "claude-code task"
+## 快速开始
 
-输出事件（核心协议）
+### 1. 启动服务
+
+```bash
+# 切换 Node 20（Node 14+ 也可）
+export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" && nvm use 20
+
+# 启动 WebSocket Server（后台运行）
+cd /home/dev/projects/VibeWatcher/vibewatcher-server
+node dist/server.js &
+```
+
+### 2. 安装 VSCode 扩展
+
+```bash
+cd /home/dev/projects/VibeWatcher/vibewatcher-vscode
+
+# 打包扩展
+vsce package
+
+# 安装到 VSCode
+code --install-extension vibewatcher-0.1.0.vsix --force
+```
+
+安装后重启 VSCode，左侧活动栏出现 VibeWatcher 图标。
+
+### 3. 使用
+
+```bash
+# 方式一：PATH 拦截（推荐，透明使用）
+export PATH="/home/dev/projects/VibeWatcher/vibewatcher-cli/bin:$PATH"
+
+# 之后直接用 claude-code 就会被监控
+claude-code 帮我重构 user 模块
+
+# 方式二：直接使用 vibewatch 命令
+vibewatch run "claude-code 你的任务"
+```
+
+## 一键构建
+
+```bash
+cd /home/dev/projects/VibeWatcher
+
+npm run build   # 构建全部三个包（CLI + Server + VSCode Extension）
+npm test        # 运行 CLI + Server 单元测试
+npm run clean   # 清理编译产物
+```
+
+## 项目结构
+
+```
+VibeWatcher/
+├── vibewatcher-cli/       # CLI Wrapper — 接管 claude-code 执行入口
+│   ├── src/
+│   │   ├── cli.ts         # 主入口，yargs CLI
+│   │   ├── spawner.ts     # child_process.spawn 封装
+│   │   ├── websocket.ts   # WebSocket 客户端（支持消息接收）
+│   │   ├── matcher.ts     # Prompt 检测正则
+│   │   ├── emitter.ts     # 事件消息构造器
+│   │   ├── parser.ts      # 行解析
+│   │   ├── summary.ts     # 执行摘要生成
+│   │   └── types.ts       # 类型定义
+│   └── tests/             # 单元测试（24 tests）
+├── vibewatcher-server/     # WebSocket 事件服务器
+│   ├── src/
+│   │   ├── server.ts      # WebSocket Server 主逻辑
+│   │   ├── task-manager.ts # 任务生命周期管理
+│   │   ├── state-store.ts  # 内存状态存储 + 历史记录持久化
+│   │   ├── notifier.ts     # 移动端通知（Telegram/Slack/Server酱）
+│   │   ├── config.ts       # 配置文件读取
+│   │   └── types.ts
+│   └── tests/             # 单元测试（9 tests）
+├── vibewatcher-vscode/     # VSCode 扩展
+│   ├── src/
+│   │   ├── extension.ts   # 激活入口
+│   │   ├── status-bar.ts  # 状态栏
+│   │   ├── task-tree.ts   # 任务列表视图
+│   │   ├── notifications.ts # 通知系统
+│   │   ├── commands.ts    # 命令（停止、复制、查看输出/摘要）
+│   │   ├── mini-panel.ts  # 迷你输出面板
+│   │   ├── websocket.ts   # WebSocket 客户端
+│   │   └── types.ts
+│   └── media/icon.svg
+├── docs/
+│   ├── LEARNING_NOTES.md  # 开发学习笔记
+│   ├── PRD.md             # v0.1 PRD
+│   └── PRD1.md            # v0.2/v0.3 PRD
+└── scripts/
+    ├── run.sh              # 一键构建+启动+运行
+    ├── setup-auto.sh       # 完整安装脚本
+    └── *.sh                # 测试和验证脚本
+```
+
+## 状态机
+
+```
+INIT → RUNNING ⇄ WAITING_INPUT → COMPLETED | ERROR
+```
+
+| 状态 | 触发条件 | 行为 |
+|------|---------|------|
+| 🟢 RUNNING | 进程启动 | 状态栏显示 Running |
+| 🟡 WAITING_INPUT | stdout 匹配 prompt 正则 | 桌面通知 + 系统提示音 |
+| 🔵 COMPLETED | exit code = 0 | 桌面通知 |
+| 🔴 ERROR | exit code ≠ 0 | 错误通知 |
+
+## 版本路线图
+
+| 版本 | 状态 | 功能 |
+|------|------|------|
+| v0.1 | **已完成** ✅ | CLI Wrapper + WebSocket Server + VSCode Extension |
+| v0.2 | **已完成** ✅ | 执行摘要生成、预测耗时、迷你输出面板、移动端通知 |
+| v0.3 | 未开始 | 智能阻塞检测、AI 状态解释器、外部硬件联动 |
+
+## 配置文件
+
+### 移动端通知配置
+
+```bash
+mkdir -p ~/.vibewatch
+# 编辑 ~/.vibewatch/config.json
+```
+
+配置格式：
+```json
 {
-  "taskId": "uuid",
-  "type": "stdout | stderr | exit | prompt",
-  "data": "raw text",
-  "timestamp": 123456789
+  "notifications": {
+    "serverchan": {
+      "enabled": true,
+      "sendkey": "你的SendKey"
+    },
+    "telegram": {
+      "enabled": false,
+      "botToken": "你的BotToken",
+      "chatId": "你的ChatId"
+    },
+    "slack": {
+      "enabled": false,
+      "webhookUrl": "https://hooks.slack.com/..."
+    },
+    "events": {
+      "WAITING_INPUT": true,
+      "COMPLETED": true,
+      "ERROR": true
+    }
+  }
 }
+```
 
-状态判定规则（必须实现）
-状态	触发条件
-RUNNING	process started
-WAITING_INPUT	stdout 匹配 prompt pattern
-COMPLETED	exit code = 0
-ERROR	exit code ≠ 0
+详见 [docs/PRD.md](docs/PRD.md) 和 [docs/PRD1.md](docs/PRD1.md)。
 
-4.2 VSCode Extension（UI层）
-必须功能
-① 状态栏 Indicator
-● 🟢 RUNNING
-● 🟡 WAITING_INPUT
-● 🔵 COMPLETED
-● 🔴 ERROR
+## 技术细节
 
-② 任务列表 View
-显示：
-● taskId
-● 状态
-● 运行时间
-● 当前输出摘要（最后 3 行）
-
-③ 通知系统
-触发条件：
-事件	行为
-WAITING_INPUT	桌面通知 + 声音
-COMPLETED	成功通知
-ERROR	红色警告通知
-
-④ 一键回跳 CLI 输出
-点击任务 → 打开输出面板（log viewer）
-
-5. 状态机（工程版本）
-INIT
- ↓
-RUNNING
- ↓
-WAITING_INPUT ↔ RUNNING
- ↓
-COMPLETED
- ↓
-ERROR
-
-6. 技术选型（可落地）
-CLI Wrapper
-● Node.js
-● child_process.spawn
-● readline / stream parser
-
-VSCode Extension
-● TypeScript
-● VSCode Extension API
-● TreeView + StatusBarItem
-● window.showInformationMessage
-
-通信方式
-● WebSocket（推荐）
-或
-● localhost HTTP + polling（MVP可用）
-
-7. 关键实现模块拆解
-
-7.1 CLI Wrapper（核心）
-spawn("claude-code", args)
-
-stdout.on("data", parseOutput)
-stderr.on("data", parseError)
-
-if (matchPrompt(data)) emit WAITING_INPUT
-if (exit 0) emit COMPLETED
-if (exit != 0) emit ERROR
-
-7.2 Pattern Matcher（必须简单）
-const promptPatterns = [
-  /proceed\?/i,
-  /y\/n/i,
-  /continue\?/i,
-  /press enter/i,
-]
-
-7.3 Event Bus
-● task manager
-● state store
-● websocket broadcaster
-
-7.4 VSCode UI
-● StatusBarItem
-● TreeView Provider
-● Notification API
-
-8. MVP不做的东西（必须严格删除）
-以下全部禁止进入 v0.1：
-❌ AI生成任务摘要
-❌ 预测耗时
-❌ 浮窗终端
-❌ 移动端通知
-❌ 硬件联动
-❌ LLM判断状态
-❌ 多模型分析
-
-9. 成功标准（可验证）
-功能正确性
-● Claude Code 启动可被捕获
-● 状态能正确切换
-● WAITING_INPUT 可100%触发通知
-● COMPLETED 可即时通知
-
-用户体验
-● 用户无需频繁切回 VSCode
-● 至少减少 70% “检查终端行为”
-
-10. 真实开发路径（建议顺序）
-Step 1（关键）
-👉 CLI Wrapper（必须先做）
-Step 2
-👉 Event Parser + State Machine
-Step 3
-👉 VSCode Extension 状态栏
-Step 4
-👉 Notification system
-
-11. 一句话总结（工程版）
-VibeWatcher v0.1 是一个“Claude Code 执行进程的 wrapper + 状态机 + VSCode UI通知插件”，不依赖 VSCode terminal 监听，而是通过控制执行入口实现可观测性。
-
-# VibeWatcher
-# VibeWatcher
+- **CLI**: Node.js, TypeScript, child_process, yargs, ws
+- **Server**: Node.js, TypeScript, ws (WebSocketServer)
+- **VSCode Extension**: TypeScript, VSCode Extension API
+- **通信**: WebSocket，端口 9234（可通过 `VIBEWATCH_PORT` 环境变量配置）
+- **Node 版本**: >= 14.8（推荐 Node 20）

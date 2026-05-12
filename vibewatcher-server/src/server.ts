@@ -1,36 +1,76 @@
 import WebSocket, { WebSocketServer } from 'ws';
 import { TaskManager } from './task-manager';
-import { WSMessage, DEFAULT_PORT, Status } from './types';
+import { Notifier } from './notifier';
+import { WSMessage, DEFAULT_PORT, Status, TaskSummary } from './types';
+
+interface TaskCreatedPayload {
+  taskId: string;
+  keyword?: string;
+}
+
+interface TaskStatusPayload {
+  taskId: string;
+  status: Status;
+}
+
+interface TaskOutputPayload {
+  taskId: string;
+  type: 'stdout' | 'stderr';
+  data: string;
+}
+
+interface TaskExitPayload {
+  taskId: string;
+  exitCode: number;
+  keyword?: string;
+}
+
+interface StopTaskPayload {
+  taskId: string;
+}
 
 export class VibeWatcherServer {
-    private wss: WebSocketServer | null = null;
-    private taskManager: TaskManager;
-    private port: number;
-    private clients: Set<WebSocket> = new Set();
+  private wss: WebSocketServer | null = null;
+  private taskManager: TaskManager;
+  private notifier: Notifier;
+  private port: number;
+  private clients: Set<WebSocket> = new Set();
 
-    constructor(port: number = DEFAULT_PORT) {
-        this.port = port;
-        this.taskManager = new TaskManager();
-        this.setupTaskListeners();
-    }
+  constructor(port: number = DEFAULT_PORT) {
+    this.port = port;
+    this.taskManager = new TaskManager();
+    this.notifier = new Notifier();
+    this.setupTaskListeners();
+  }
 
-    private setupTaskListeners(): void {
-        this.taskManager.onTaskCreated((taskId: string) => {
-            this.broadcast({ type: 'TASK_CREATED', payload: { taskId } });
-        });
+  private setupTaskListeners(): void {
+    this.taskManager.onTaskCreated((taskId: string) => {
+      this.broadcast({ type: 'TASK_CREATED', payload: { taskId } });
+    });
 
-        this.taskManager.onTaskStatusChange((taskId: string, status: unknown) => {
-            this.broadcast({ type: 'TASK_STATUS', payload: { taskId, status } });
-        });
+    this.taskManager.onTaskStatusChange((taskId: string, status: Status) => {
+      this.broadcast({ type: 'TASK_STATUS', payload: { taskId, status } });
+      if (status === 'WAITING_INPUT') {
+        this.notifier.notify({ taskId, status });
+      }
+    });
 
-        this.taskManager.onTaskOutput((taskId: string, type: unknown, data: unknown) => {
-            this.broadcast({ type: 'TASK_OUTPUT', payload: { taskId, type, data } });
-        });
+    this.taskManager.onTaskOutput((taskId: string, type: string, data: string) => {
+      this.broadcast({ type: 'TASK_OUTPUT', payload: { taskId, type, data } });
+    });
 
-        this.taskManager.onTaskExit((taskId: string, exitCode: unknown, duration: unknown) => {
-            this.broadcast({ type: 'TASK_EXIT', payload: { taskId, exitCode, duration } });
-        });
-    }
+    this.taskManager.onTaskExit((taskId: string, exitCode: number, duration: number, keyword?: string) => {
+      const status: Status = exitCode === 0 ? 'COMPLETED' : 'ERROR';
+      this.broadcast({ type: 'TASK_EXIT', payload: { taskId, exitCode, duration } });
+      this.notifier.notify({ taskId, status, keyword, duration });
+    });
+
+    this.taskManager.onTaskPrediction((taskId: string, prediction) => {
+      if (prediction) {
+        this.broadcast({ type: 'TASK_PREDICTION', payload: { taskId, ...prediction } });
+      }
+    });
+  }
 
     start(): Promise<void> {
         return new Promise((resolve, reject) => {
@@ -75,7 +115,7 @@ export class VibeWatcherServer {
             reject(new Error('Failed to find available port'));
             return;
         }
-        console.log('[VibeWatcher Server] Port ' + this.port + ' in use, trying ' + nextPort);
+        console.log(`[VibeWatcher Server] Port ${this.port} in use, trying ${nextPort}`);
         if (this.wss) {
             this.wss.close();
         }
@@ -86,45 +126,59 @@ export class VibeWatcherServer {
     }
 
     private handleMessage(ws: WebSocket, data: string): void {
+        let message: WSMessage;
         try {
-            const message: WSMessage = JSON.parse(data);
+            message = JSON.parse(data);
+        } catch {
+            console.error('[VibeWatcher Server] Failed to parse message');
+            return;
+        }
 
-            switch (message.type) {
-                case 'TASK_CREATED': {
-                    const payload = message.payload as { taskId: string };
-                    this.taskManager.createTask(payload.taskId);
-                    break;
-                }
-                case 'TASK_STATUS': {
-                    const payload = message.payload as { taskId: string; status: Status };
-                    this.taskManager.updateStatus(payload.taskId, payload.status);
-                    break;
-                }
-                case 'TASK_OUTPUT': {
-                    const payload = message.payload as {
-                        taskId: string;
-                        type: 'stdout' | 'stderr';
-                        data: string;
-                    };
-                    this.taskManager.appendOutput(payload.taskId, payload.type, payload.data);
-                    break;
-                }
-                case 'TASK_EXIT': {
-                    const payload = message.payload as { taskId: string; exitCode: number };
-                    this.taskManager.exitTask(payload.taskId, payload.exitCode);
-                    break;
-                }
-                case 'LIST_TASKS': {
-                    const tasks = this.taskManager.listTasks();
-                    ws.send(JSON.stringify({ type: 'TASKS_LIST', payload: tasks }));
-                    break;
-                }
-                case 'STOP_TASK': {
-                    break;
-                }
+        // Validate message structure
+        if (!message || typeof message.type !== 'string' || !message.payload) {
+            return;
+        }
+
+        const validTypes = ['TASK_CREATED', 'TASK_STATUS', 'TASK_OUTPUT', 'TASK_EXIT', 'LIST_TASKS', 'STOP_TASK', 'TASK_SUMMARY'];
+        if (!validTypes.includes(message.type)) {
+            return;
+        }
+
+        switch (message.type) {
+            case 'TASK_CREATED': {
+                const payload = message.payload as TaskCreatedPayload;
+                const keyword = payload.keyword || 'general';
+                this.taskManager.createTask(payload.taskId, keyword);
+                break;
             }
-        } catch (error) {
-            console.error('[VibeWatcher Server] Failed to parse message:', error);
+            case 'TASK_STATUS': {
+                const payload = message.payload as TaskStatusPayload;
+                this.taskManager.updateStatus(payload.taskId, payload.status);
+                break;
+            }
+            case 'TASK_OUTPUT': {
+                const payload = message.payload as TaskOutputPayload;
+                this.taskManager.appendOutput(payload.taskId, payload.type, payload.data);
+                break;
+            }
+            case 'TASK_EXIT': {
+                const payload = message.payload as TaskExitPayload;
+                this.taskManager.exitTask(payload.taskId, payload.exitCode, payload.keyword);
+                break;
+            }
+            case 'TASK_SUMMARY': {
+                this.broadcast(message);
+                break;
+            }
+            case 'LIST_TASKS': {
+                const tasks = this.taskManager.listTasks();
+                ws.send(JSON.stringify({ type: 'TASKS_LIST', payload: tasks }));
+                break;
+            }
+            case 'STOP_TASK': {
+                this.broadcast(message);
+                break;
+            }
         }
     }
 

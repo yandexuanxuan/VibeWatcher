@@ -11,7 +11,9 @@ import {
   createTaskStatus,
   createTaskOutput,
   createTaskExit,
+  createTaskSummary,
 } from './emitter';
+import { generateSummary, extractKeyword } from './summary';
 import { Status } from './types';
 
 interface TaskContext {
@@ -19,8 +21,10 @@ interface TaskContext {
   status: Status;
   startTime: number;
   lastOutput: string[];
+  allOutputLines: string[];
   wsClient: WebSocketClient | null;
-  process: ReturnType<typeof spawnProcess> | null;
+  child: ReturnType<typeof spawnProcess> | null;
+  commandArgs: string[];
 }
 
 async function runTask(args: { command: string[] }): Promise<void> {
@@ -30,66 +34,103 @@ async function runTask(args: { command: string[] }): Promise<void> {
     status: 'RUNNING',
     startTime: Date.now(),
     lastOutput: [],
+    allOutputLines: [],
     wsClient: null,
-    process: null,
+    child: null,
+    commandArgs: args.command,
   };
 
-  // 创建 WebSocket 连接
+  const keyword = extractKeyword(args.command.join(' '));
+
   try {
     context.wsClient = new WebSocketClient();
     await context.wsClient.connect();
-    context.wsClient.send(createTaskCreated(taskId));
+    context.wsClient.send(createTaskCreated(taskId, keyword));
     context.wsClient.send(createTaskStatus(taskId, 'RUNNING'));
-  } catch (error) {
+
+    context.wsClient.onMessage('STOP_TASK', (payload) => {
+      const { taskId: stopTaskId } = payload as { taskId: string };
+      if (stopTaskId === taskId && context.child) {
+        console.log('[VibeWatcher] Received stop signal, terminating process...');
+        context.child.kill('SIGTERM');
+      }
+    });
+  } catch {
     console.error('[VibeWatcher] Warning: Cannot connect to server, running in standalone mode');
     context.wsClient = null;
   }
 
-  // 解析命令
   const [command, ...commandArgs] = args.command;
+  const child = spawnProcess(command, commandArgs);
+  context.child = child;
 
-  // Spawn 进程
-  context.process = spawnProcess(command, commandArgs);
-
-  context.process.stdout?.on('data', (data: Buffer) => {
-    const text = data.toString();
-    process.stdout.write(text);
-
-    context.wsClient?.send(
-      createTaskOutput(taskId, 'stdout', text)
-    );
-
-    // 检查是否需要输入
-    const lines = splitLines(text);
-    for (const line of lines) {
-      context.lastOutput.push(line);
-      if (context.lastOutput.length > 3) {
-        context.lastOutput.shift();
+  if (child.stdout) {
+    child.stdout.on('data', (data: Buffer) => {
+      const text = data.toString();
+      process.stdout.write(text);
+      if (context.wsClient) {
+        context.wsClient.send(createTaskOutput(taskId, 'stdout', text));
       }
 
-      if (matchPrompt(line) && context.status !== 'WAITING_INPUT') {
-        context.status = 'WAITING_INPUT';
-        context.wsClient?.send(createTaskStatus(taskId, 'WAITING_INPUT'));
-        console.log('[VibeWatcher] Detected prompt requiring input');
+      for (const line of splitLines(text)) {
+        context.lastOutput.push(line);
+        context.allOutputLines.push(line);
+        if (context.lastOutput.length > 3) {
+          context.lastOutput.shift();
+        }
+
+        if (matchPrompt(line) && context.status !== 'WAITING_INPUT') {
+          context.status = 'WAITING_INPUT';
+          if (context.wsClient) {
+            context.wsClient.send(createTaskStatus(taskId, 'WAITING_INPUT'));
+          }
+          console.log('[VibeWatcher] Detected prompt requiring input');
+        }
       }
-    }
-  });
+    });
+  }
 
-  context.process.stderr?.on('data', (data: Buffer) => {
-    const text = data.toString();
-    process.stderr.write(text);
-    context.wsClient?.send(createTaskOutput(taskId, 'stderr', text));
-  });
+  if (child.stderr) {
+    child.stderr.on('data', (data: Buffer) => {
+      const text = data.toString();
+      process.stderr.write(text);
+      if (context.wsClient) {
+        context.wsClient.send(createTaskOutput(taskId, 'stderr', text));
+      }
+      for (const line of splitLines(text)) {
+        context.allOutputLines.push(line);
+      }
+    });
+  }
 
-  context.process.on('exit', (code) => {
+  child.on('exit', (code) => {
     const duration = Date.now() - context.startTime;
-    const finalStatus: Status = code === 0 ? 'COMPLETED' : 'ERROR';
+    const exitCode = code !== null ? code : 1;
+    const finalStatus: Status = exitCode === 0 ? 'COMPLETED' : 'ERROR';
 
-    context.wsClient?.send(createTaskStatus(taskId, finalStatus));
-    context.wsClient?.send(createTaskExit(taskId, code ?? 1, duration));
-    context.wsClient?.close();
+    if (context.wsClient) {
+      context.wsClient.send(createTaskStatus(taskId, finalStatus));
+      context.wsClient.send(createTaskExit(taskId, exitCode, duration, keyword));
 
-    process.exit(code ?? 1);
+      // Generate and send summary
+      try {
+        const summary = generateSummary({
+          taskId,
+          commandArgs: context.commandArgs,
+          outputLines: context.allOutputLines,
+          duration,
+          exitCode,
+        });
+        context.wsClient.send(createTaskSummary(summary));
+        console.log(`[VibeWatcher] Summary saved: ${summary.summaryPath}`);
+      } catch (err) {
+        console.error('[VibeWatcher] Failed to generate summary:', err);
+      }
+
+      context.wsClient.close();
+    }
+
+    process.exit(exitCode);
   });
 }
 

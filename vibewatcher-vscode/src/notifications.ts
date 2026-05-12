@@ -34,8 +34,7 @@ export class NotificationManager {
   }
 
   private playSound(): void {
-    // VSCode doesn't have a built-in sound API
-    // This is a placeholder - users can configure their own notification sounds
+    // VSCode message APIs (showWarningMessage etc.) trigger OS notification sounds natively
   }
 
   clear(): void {

@@ -1,22 +1,16 @@
-import { createTaskEvent, createTaskCreated, createTaskStatus, createTaskOutput, createTaskExit } from '../src/emitter';
-
-describe('createTaskEvent', () => {
-  it('should create event with correct structure', () => {
-    const event = createTaskEvent('task-123', 'stdout', 'Hello');
-    expect(event.type).toBe('TASK_OUTPUT');
-    expect(event.payload).toHaveProperty('taskId', 'task-123');
-    expect(event.payload).toHaveProperty('type', 'stdout');
-    expect(event.payload).toHaveProperty('data', 'Hello');
-    expect(event.payload).toHaveProperty('timestamp');
-    expect(typeof (event.payload as any).timestamp).toBe('number');
-  });
-});
+import { createTaskCreated, createTaskStatus, createTaskOutput, createTaskExit } from '../src/emitter';
 
 describe('createTaskCreated', () => {
-  it('should create TASK_CREATED message', () => {
+  it('should create TASK_CREATED message without keyword', () => {
     const event = createTaskCreated('task-123');
     expect(event.type).toBe('TASK_CREATED');
-    expect(event.payload).toEqual({ taskId: 'task-123' });
+    expect(event.payload).toEqual({ taskId: 'task-123', keyword: undefined });
+  });
+
+  it('should create TASK_CREATED message with keyword', () => {
+    const event = createTaskCreated('task-123', 'refactor');
+    expect(event.type).toBe('TASK_CREATED');
+    expect(event.payload).toEqual({ taskId: 'task-123', keyword: 'refactor' });
   });
 });
 
@@ -40,6 +34,6 @@ describe('createTaskExit', () => {
   it('should create TASK_EXIT message', () => {
     const event = createTaskExit('task-123', 0, 5000);
     expect(event.type).toBe('TASK_EXIT');
-    expect(event.payload).toEqual({ taskId: 'task-123', exitCode: 0, duration: 5000 });
+    expect(event.payload).toEqual({ taskId: 'task-123', exitCode: 0, duration: 5000, keyword: undefined });
   });
 });

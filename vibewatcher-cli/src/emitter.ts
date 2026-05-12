@@ -1,25 +1,9 @@
-import { WSMessage, Status } from './types';
+import { WSMessage, Status, TaskSummary } from './types';
 
-export function createTaskEvent(
-  taskId: string,
-  type: 'stdout' | 'stderr' | 'exit' | 'prompt',
-  data: string
-): WSMessage {
-  return {
-    type: 'TASK_OUTPUT',
-    payload: {
-      taskId,
-      type,
-      data,
-      timestamp: Date.now(),
-    },
-  };
-}
-
-export function createTaskCreated(taskId: string): WSMessage {
+export function createTaskCreated(taskId: string, keyword?: string): WSMessage {
   return {
     type: 'TASK_CREATED',
-    payload: { taskId },
+    payload: { taskId, keyword },
   };
 }
 
@@ -44,10 +28,18 @@ export function createTaskOutput(
 export function createTaskExit(
   taskId: string,
   exitCode: number,
-  duration: number
+  duration: number,
+  keyword?: string
 ): WSMessage {
   return {
     type: 'TASK_EXIT',
-    payload: { taskId, exitCode, duration },
+    payload: { taskId, exitCode, duration, keyword },
+  };
+}
+
+export function createTaskSummary(summary: TaskSummary): WSMessage {
+  return {
+    type: 'TASK_SUMMARY',
+    payload: summary,
   };
 }

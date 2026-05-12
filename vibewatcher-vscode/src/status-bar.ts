@@ -7,8 +7,8 @@ export class StatusBar {
 
   constructor() {
     this.item = window.createStatusBarItem(StatusBarAlignment.Left, 100);
-    this.item.command = 'vibewatcher.showTaskList';
-    this.item.tooltip = 'VibeWatcher - Click to view tasks';
+    this.item.command = 'vibewatcher.toggleMiniPanel';
+    this.item.tooltip = 'VibeWatcher - Click to toggle mini output panel';
     this.updateDisplay();
   }
 

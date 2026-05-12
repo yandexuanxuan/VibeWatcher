@@ -16,8 +16,23 @@ export interface TaskState {
 }
 
 export interface WSMessage {
-  type: string;
+  type: 'TASK_CREATED' | 'TASK_STATUS' | 'TASK_OUTPUT' | 'TASK_EXIT' | 'LIST_TASKS' | 'TASKS_LIST' | 'STOP_TASK' | 'TASK_SUMMARY' | 'TASK_PREDICTION';
   payload: unknown;
+}
+
+export interface TaskSummary {
+  taskId: string;
+  summaryPath: string;
+  duration: number;
+  keyword: string;
+  status: Status;
+}
+
+export interface TaskPrediction {
+  taskId: string;
+  estimatedRemaining: number;
+  totalEstimate: number;
+  basedOn: number;
 }
 
 export const DEFAULT_PORT = 9234;

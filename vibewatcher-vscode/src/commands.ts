@@ -1,7 +1,9 @@
-import { window, commands, env, OutputChannel } from 'vscode';
-import { TaskState } from './types';
+import { window, commands, env, OutputChannel, workspace } from 'vscode';
+import { TaskState, TaskSummary } from './types';
+import { VSCodeWebSocketClient } from './websocket';
 
 let outputChannel: OutputChannel | null = null;
+let wsClientRef: VSCodeWebSocketClient | null = null;
 
 export function showOutput(task: TaskState): void {
   if (!outputChannel) {
@@ -24,13 +26,29 @@ export function copyTaskId(task: TaskState): void {
   window.showInformationMessage('TaskId copied to clipboard');
 }
 
-export function registerCommands(): void {
+export async function showSummary(summary: TaskSummary): Promise<void> {
+  try {
+    const doc = await workspace.openTextDocument(summary.summaryPath);
+    await window.showTextDocument(doc);
+  } catch {
+    window.showErrorMessage(`Cannot open summary: ${summary.summaryPath}`);
+  }
+}
+
+export function registerCommands(wsClient: VSCodeWebSocketClient): void {
+  wsClientRef = wsClient;
+
   commands.registerCommand('vibewatcher.showOutput', (task: TaskState) => {
     showOutput(task);
   });
 
   commands.registerCommand('vibewatcher.stopTask', (task: TaskState) => {
-    window.showInformationMessage(`Stopping task ${task.taskId.substring(0, 8)}...`);
+    if (wsClientRef) {
+      wsClientRef.send({ type: 'STOP_TASK', payload: { taskId: task.taskId } });
+      window.showInformationMessage(`Stop signal sent to task ${task.taskId.substring(0, 8)}`);
+    } else {
+      window.showWarningMessage('[VibeWatcher] Not connected to server');
+    }
   });
 
   commands.registerCommand('vibewatcher.copyTaskId', (task: TaskState) => {
