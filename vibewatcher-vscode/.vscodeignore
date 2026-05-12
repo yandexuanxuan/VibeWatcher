@@ -1,33 +1,53 @@
 # Source code
+src/
 src/**
+tests/
 tests/**
 
 # Configuration
 tsconfig.json
 *.test.ts
 jest.config.js
+.vscode/
 .vscode/**
 .vscodeignore
 package-simple.json
 
-# 排除所有其他目录，只保留当前扩展的 node_modules
-../*
-node_modules/@babel
-node_modules/@bcoe
-node_modules/@istanbuljs
-node_modules/@jest
-node_modules/@jridgewell
-node_modules/@sinclair
-node_modules/@sinonjs
-node_modules/@types
-node_modules/@vscode
-node_modules/undici-types
-node_modules/.bin
-node_modules/.package-lock.json
+# Node modules - keep only ws and vibewatcher-shared
+node_modules/
+node_modules/**
+!node_modules/ws
+!node_modules/ws/**
+!node_modules/vibewatcher-shared
+!node_modules/vibewatcher-shared/**
 
-# Git
+# Git and parent directory
 .git/
+.git/**
 .gitignore
+CLAUDE.md
+README.md
+install.sh
+package.json
+package-lock.json
+LICENSE
+start.sh
+test.sh
+test-task.js
+verify-vscode.sh
+
+vibewatcher-cli/
+vibewatcher-cli/**
+vibewatcher-server/
+vibewatcher-server/**
+vibewatcher-shared/
+vibewatcher-shared/**
+
+bin/
+bin/**
+
+docs/
+docs/**
 
 # OS
 .DS_Store

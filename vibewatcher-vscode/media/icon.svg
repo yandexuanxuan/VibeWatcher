@@ -1,4 +1,32 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <circle cx="50" cy="50" r="45" fill="#4CAF50"/>
-  <path d="M30 50 L45 65 L70 35" stroke="white" stroke-width="8" fill="none"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Background circle with gradient effect -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="100%" style="stop-color:#16213e"/>
+    </linearGradient>
+    <linearGradient id="eyeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00d4ff"/>
+      <stop offset="100%" style="stop-color:#0099ff"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Main circle background -->
+  <circle cx="128" cy="128" r="120" fill="url(#bgGradient)" stroke="#00d4ff" stroke-width="4"/>
+
+  <!-- Eye shape outer -->
+  <path d="M40 128 C40 128 90 60 128 60 C166 60 216 128 216 128 C216 128 166 196 128 196 C90 196 40 128 40 128 Z"
+        fill="none" stroke="url(#eyeGradient)" stroke-width="8" stroke-linecap="round"/>
+
+  <!-- Inner pupil - represents watching/monitoring -->
+  <circle cx="128" cy="128" r="35" fill="url(#eyeGradient)"/>
+
+  <!-- Pupil inner glow -->
+  <circle cx="128" cy="128" r="20" fill="#ffffff" opacity="0.9"/>
+
+  <!-- Small status indicator dot -->
+  <circle cx="190" cy="60" r="12" fill="#4CAF50" stroke="#1a1a2e" stroke-width="3"/>
+
+  <!-- Reflection highlight -->
+  <circle cx="115" cy="115" r="8" fill="#ffffff" opacity="0.6"/>
 </svg>

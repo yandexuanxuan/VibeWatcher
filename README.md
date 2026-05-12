@@ -103,6 +103,36 @@ code --install-extension vibewatcher-*.vsix --force
 
 > 💡 **提示**: 安装后需要重启 VSCode 或执行 `Ctrl+Shift+P` → `Reload Window`
 
+### 扩展使用指南
+
+安装 VibeWatcher 扩展后，你将在 VSCode 中获得以下功能：
+
+#### 1. 活动栏图标
+- VSCode 左侧活动栏会出现 **VibeWatcher 图标**（眼睛形态）
+- 点击可展开任务列表视图
+
+#### 2. 任务列表（TreeView）
+- 显示当前所有 Claude Code 任务
+- 每项显示：任务ID（截断）、状态、运行时长
+- 状态图标：🟢 运行中 / 🟡 等待输入 / 🔵 完成 / 🔴 错误
+- **双击任务**：查看详细输出
+- **右键菜单**：停止任务、复制 TaskId
+
+#### 3. 状态栏
+- VSCode 底部状态栏显示当前整体状态
+- 🟢 = 有任务运行中
+- 🟡 = 等待用户输入
+- 🔵 = 全部完成
+- 🔴 = 有错误
+
+#### 4. 通知提醒
+- 任务完成/出错/等待输入时自动弹出系统通知
+- 移动端（需配置）：Telegram / Slack / Server酱
+
+#### 5. 迷你输出面板
+- 命令面板（`Ctrl+Shift+P`）输入：`VibeWatcher: Toggle Mini Output Panel`
+- 可实时查看任务输出流
+
 ### 开始使用
 
 ```bash
