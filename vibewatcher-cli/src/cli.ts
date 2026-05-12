@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { v4 as uuidv4 } from 'uuid';
 import { spawnProcess } from './spawner';
@@ -134,12 +133,10 @@ async function runTask(args: { command: string[] }): Promise<void> {
   });
 }
 
-yargs(hideBin(process.argv))
-  .command(
-    '$0 <command..>',
-    'Run a command with VibeWatcher monitoring',
-    {},
-    runTask as (args: Record<string, unknown>) => void | Promise<void>
-  )
-  .demandCommand(1, 'You need to specify a command to run')
-  .parse();
+// Parse arguments directly from process.argv to capture all tokens including options
+const args = hideBin(process.argv);
+if (args.length === 0) {
+  console.error('Error: You need to specify a command to run');
+  process.exit(1);
+}
+runTask({ command: args });

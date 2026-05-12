@@ -135,7 +135,7 @@ export class VibeWatcherServer {
         }
 
         // Validate message structure
-        if (!message || typeof message.type !== 'string' || !message.payload) {
+        if (!message || typeof message.type !== 'string' || message.payload === undefined) {
             return;
         }
 

@@ -130,10 +130,8 @@ VibeWatcher/
 │   │   ├── websocket.ts   # WebSocket 客户端
 │   │   └── types.ts
 │   └── media/icon.svg
-├── docs/
-│   ├── LEARNING_NOTES.md  # 开发学习笔记
-│   ├── PRD.md             # v0.1 PRD
-│   └── PRD1.md            # v0.2/v0.3 PRD
+│
+│       
 └── scripts/
     ├── run.sh              # 一键构建+启动+运行
     ├── setup-auto.sh       # 完整安装脚本

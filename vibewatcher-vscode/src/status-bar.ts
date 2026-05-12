@@ -1,5 +1,6 @@
 import { StatusBarItem, StatusBarAlignment, window } from 'vscode';
 import { Status } from './types';
+import { STATUS_EMOJI } from './utils';
 
 export class StatusBar {
   private item: StatusBarItem;
@@ -18,15 +19,15 @@ export class StatusBar {
   }
 
   private updateDisplay(): void {
-    const statusConfig: Record<Status, { icon: string; text: string; color?: string }> = {
-      RUNNING: { icon: '🟢', text: 'Running' },
-      WAITING_INPUT: { icon: '🟡', text: 'Waiting' },
-      COMPLETED: { icon: '🔵', text: 'Idle' },
-      ERROR: { icon: '🔴', text: 'Error' },
+    const statusConfig: Record<Status, { text: string; color?: string }> = {
+      RUNNING: { text: 'Running' },
+      WAITING_INPUT: { text: 'Waiting' },
+      COMPLETED: { text: 'Idle' },
+      ERROR: { text: 'Error' },
     };
 
     const config = statusConfig[this.currentStatus];
-    this.item.text = `${config.icon} ${config.text}`;
+    this.item.text = `${STATUS_EMOJI[this.currentStatus]} ${config.text}`;
     if (config.color) {
       this.item.color = config.color;
     }

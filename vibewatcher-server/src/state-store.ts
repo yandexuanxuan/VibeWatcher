@@ -93,7 +93,7 @@ export class StateStore {
     let totalWeight = 0;
     let weightedSum = 0;
     const now = Date.now();
-    history.forEach((entry, i) => {
+    history.forEach((entry) => {
       const age = (now - entry.timestamp) / 1000; // seconds
       const weight = 1 / (1 + age / 86400); // decay over 24h
       weightedSum += entry.duration * weight;
@@ -116,7 +116,14 @@ export class StateStore {
     try {
       if (fs.existsSync(HISTORY_PATH)) {
         const data = fs.readFileSync(HISTORY_PATH, 'utf-8');
-        return JSON.parse(data) as HistoryData;
+        const parsed = JSON.parse(data);
+        // Handle legacy array format or proper object format
+        if (Array.isArray(parsed)) {
+          return { tasks: parsed };
+        }
+        if (parsed && Array.isArray(parsed.tasks)) {
+          return parsed as HistoryData;
+        }
       }
     } catch {
       // ignore

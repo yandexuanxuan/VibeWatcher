@@ -2,15 +2,18 @@ import https from 'https';
 import { loadConfig } from './config';
 import { Status } from './types';
 
-const log = (channel: string) => (err: Error) =>
-  console.error(`[VibeWatcher] ${channel} notification failed`);
-
 interface TaskEvent {
   taskId: string;
   status: Status;
   keyword?: string;
   duration?: number;
   exitCode?: number;
+}
+
+interface NotificationPayload {
+  hostname: string;
+  path: string;
+  body: Record<string, unknown>;
 }
 
 export class Notifier {
@@ -43,15 +46,32 @@ export class Notifier {
       + (duration ? ` · ${duration}` : '');
 
     if (notifications.telegram?.enabled) {
-      this.sendTelegram(notifications.telegram.botToken, notifications.telegram.chatId, text);
+      this.send({
+        hostname: 'api.telegram.org',
+        path: `/bot${notifications.telegram.botToken}/sendMessage`,
+        body: { chat_id: notifications.telegram.chatId, text, parse_mode: 'Markdown' },
+      }, 'Telegram');
     }
 
     if (notifications.slack?.enabled) {
-      this.sendSlack(notifications.slack.webhookUrl, text);
+      try {
+        const urlObj = new URL(notifications.slack.webhookUrl);
+        this.send({
+          hostname: urlObj.hostname,
+          path: urlObj.pathname,
+          body: { text },
+        }, 'Slack');
+      } catch {
+        console.error('[VibeWatcher] Slack: invalid webhook URL');
+      }
     }
 
     if (notifications.serverchan?.enabled) {
-      this.sendServerChan(notifications.serverchan.sendkey, text);
+      this.send({
+        hostname: 'sctapi.ftqq.com',
+        path: `/push/${notifications.serverchan.sendkey}`,
+        body: { title: 'VibeWatcher', desp: text },
+      }, 'ServerChan');
     }
   }
 
@@ -65,16 +85,11 @@ export class Notifier {
     return true;
   }
 
-  private sendTelegram(botToken: string, chatId: string, text: string): void {
-    const body = JSON.stringify({
-      chat_id: chatId,
-      text,
-      parse_mode: 'Markdown',
-    });
-
+  private send(payload: NotificationPayload, channel: string): void {
+    const body = JSON.stringify(payload.body);
     const options = {
-      hostname: 'api.telegram.org',
-      path: `/bot${botToken}/sendMessage`,
+      hostname: payload.hostname,
+      path: payload.path,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -85,59 +100,7 @@ export class Notifier {
     const req = https.request(options, (res) => {
       res.on('data', () => {});
     });
-    req.on('error', log('Telegram'));
-    req.write(body);
-    req.end();
-  }
-
-  private sendSlack(webhookUrl: string, text: string): void {
-    let urlObj: URL;
-    try {
-      urlObj = new URL(webhookUrl);
-    } catch {
-      console.error('[VibeWatcher] Slack: invalid webhook URL');
-      return;
-    }
-
-    const body = JSON.stringify({ text });
-    const options = {
-      hostname: urlObj.hostname,
-      path: urlObj.pathname,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(body),
-      },
-    };
-
-    const req = https.request(options, (res) => {
-      res.on('data', () => {});
-    });
-    req.on('error', log('Slack'));
-    req.write(body);
-    req.end();
-  }
-
-  private sendServerChan(sendkey: string, text: string): void {
-    const body = JSON.stringify({
-      title: 'VibeWatcher',
-      desp: text,
-    });
-
-    const options = {
-      hostname: 'sctapi.ftqq.com',
-      path: `/push/${sendkey}`,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(body),
-      },
-    };
-
-    const req = https.request(options, (res) => {
-      res.on('data', () => {});
-    });
-    req.on('error', log('ServerChan'));
+    req.on('error', () => console.error(`[VibeWatcher] ${channel} notification failed`));
     req.write(body);
     req.end();
   }

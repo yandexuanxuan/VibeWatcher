@@ -31,6 +31,9 @@ coverage/
 *.tmp
 *.temp
 
-# IDE and personal docs (not for open source)
-.vscode/
-docs/
+# Dependency lock files (keep package.json)
+**/package-lock.json
+*.lock
+
+# Build artifacts
+*.tgz

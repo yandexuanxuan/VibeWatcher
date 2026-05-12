@@ -1,5 +1,6 @@
 import { TreeDataProvider, TreeItem, TreeItemCollapsibleState, EventEmitter, Event } from 'vscode';
 import { TaskState, TaskPrediction } from './types';
+import { STATUS_EMOJI, formatDuration } from './utils';
 
 export class TaskTreeItem extends TreeItem {
   public readonly task: TaskState;
@@ -14,7 +15,7 @@ export class TaskTreeItem extends TreeItem {
     this.prediction = prediction;
 
     const elapsed = Math.floor((Date.now() - task.startTime) / 1000);
-    const elapsedStr = elapsed < 60 ? `${elapsed}s` : `${Math.floor(elapsed / 60)}m${elapsed % 60}s`;
+    const elapsedStr = formatDuration(elapsed * 1000);
 
     const outputLines = task.lastOutput.length > 0
       ? `\n--- Output ---\n${task.lastOutput.join('\n')}`
@@ -22,36 +23,21 @@ export class TaskTreeItem extends TreeItem {
 
     let progressBar = '';
     if (task.status === 'RUNNING' && prediction && prediction.totalEstimate > 0) {
-      const pct = Math.min(100, Math.floor(((elapsed / 1000) / (prediction.totalEstimate / 1000)) * 100));
+      const pct = Math.min(100, Math.floor(((elapsed * 1000) / prediction.totalEstimate) * 100));
       const filled = Math.floor(pct / 10);
       const empty = 10 - filled;
       const bar = '█'.repeat(filled) + '░'.repeat(empty);
-      const remaining = formatRemaining(prediction.estimatedRemaining);
+      const remaining = formatDuration(prediction.estimatedRemaining);
       progressBar = `\nPrediction: [${bar}] ${pct}% 预计剩余 ${remaining} (基于${prediction.basedOn}个历史任务)`;
     }
 
     this.tooltip = `${task.taskId}\nStatus: ${task.status}\nRuntime: ${elapsedStr}\nStarted: ${new Date(task.startTime).toLocaleTimeString()}${outputLines}${progressBar}`;
     this.description = prediction && task.status === 'RUNNING'
-      ? `${task.status} · ${formatRemaining(prediction.estimatedRemaining)}`
+      ? `${task.status} · ${formatDuration(prediction.estimatedRemaining)}`
       : `${task.status} · ${elapsedStr}`;
     this.contextValue = 'task';
-
-    const iconMap: Record<string, string> = {
-      RUNNING: '🟢',
-      WAITING_INPUT: '🟡',
-      COMPLETED: '🔵',
-      ERROR: '🔴',
-    };
-    this.label = `${iconMap[task.status] || '⚪'} ${task.taskId.substring(0, 8)}`;
+    this.label = `${STATUS_EMOJI[task.status] || '⚪'} ${task.taskId.substring(0, 8)}`;
   }
-}
-
-function formatRemaining(ms: number): string {
-  const s = Math.floor(ms / 1000);
-  if (s < 60) return `${s}s`;
-  const m = Math.floor(s / 60);
-  const rem = s % 60;
-  return rem > 0 ? `${m}m${rem}s` : `${m}m`;
 }
 
 export class TaskTreeProvider implements TreeDataProvider<TaskTreeItem> {
