@@ -1,5 +1,5 @@
 import { TreeDataProvider, TreeItem, TreeItemCollapsibleState, EventEmitter, Event } from 'vscode';
-import { TaskState, TaskPrediction } from './types';
+import { TaskState, TaskPrediction } from 'vibewatcher-shared';
 import { STATUS_EMOJI, formatDuration } from './utils';
 
 export class TaskTreeItem extends TreeItem {

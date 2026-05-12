@@ -1,5 +1,5 @@
 import { window, env } from 'vscode';
-import { Status } from './types';
+import { Status } from 'vibewatcher-shared';
 
 interface TaskNotificationState {
   notified: Set<string>;

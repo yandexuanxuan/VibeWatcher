@@ -1,5 +1,5 @@
 import { StatusBarItem, StatusBarAlignment, window } from 'vscode';
-import { Status } from './types';
+import { Status } from 'vibewatcher-shared';
 import { STATUS_EMOJI } from './utils';
 
 export class StatusBar {

@@ -1,0 +1,169 @@
+#!/bin/bash
+#
+# VibeWatcher Doctor - 诊断工具
+# 检查系统环境、依赖安装、端口占用等问题
+#
+
+set -e
+
+INSTALL_DIR="${VIBEWATCH_HOME:-$HOME/.vibewatch}"
+BIN_DIR="$INSTALL_DIR/bin"
+PORT="${VIBEWATCH_PORT:-9234}"
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+check() {
+    local name="$1"
+    local result="$2"
+    local message="$3"
+
+    if [ "$result" = "ok" ]; then
+        echo -e "  ${GREEN}✓${NC} $name"
+    elif [ "$result" = "warn" ]; then
+        echo -e "  ${YELLOW}⚠${NC} $name: $message"
+    else
+        echo -e "  ${RED}✗${NC} $name: $message"
+    fi
+}
+
+echo "=============================================="
+echo "         VibeWatcher Doctor v0.4"
+echo "=============================================="
+echo ""
+
+echo "【1. 环境检查】"
+
+# Node.js
+if command -v node &> /dev/null; then
+    NODE_VERSION=$(node -v)
+    check "Node.js" "ok" "$NODE_VERSION"
+else
+    check "Node.js" "fail" "未安装"
+fi
+
+# npm
+if command -v npm &> /dev/null; then
+    NPM_VERSION=$(npm -v)
+    check "npm" "ok" "$NPM_VERSION"
+else
+    check "npm" "fail" "未安装"
+fi
+
+echo ""
+echo "【2. 安装检查】"
+
+# 安装目录
+if [ -d "$INSTALL_DIR" ]; then
+    check "安装目录" "ok" "$INSTALL_DIR"
+else
+    check "安装目录" "warn" "未安装 (运行 install.sh)"
+fi
+
+# 二进制文件
+if [ -f "$BIN_DIR/vibe-daemon" ]; then
+    check "vibe-daemon" "ok"
+else
+    check "vibe-daemon" "fail" "未找到"
+fi
+
+if [ -f "$BIN_DIR/server.js" ]; then
+    check "server.js" "ok"
+else
+    check "server.js" "fail" "未找到"
+fi
+
+# node_modules
+if [ -L "$BIN_DIR/node_modules" ] || [ -d "$BIN_DIR/node_modules" ]; then
+    check "node_modules" "ok"
+else
+    check "node_modules" "warn" "可能未正确链接"
+fi
+
+echo ""
+echo "【3. 服务状态】"
+
+# Server 进程
+if "$BIN_DIR/vibe-daemon" status &>/dev/null; then
+    PID=$("$BIN_DIR/vibe-daemon" status 2>&1 | grep -oP '\(PID: \K\d+' || echo "")
+    check "Server 进程" "ok" "运行中 $PID"
+else
+    check "Server 进程" "warn" "未运行 (使用 vibe-daemon start 启动)"
+fi
+
+# 端口检测
+if command -v lsof &> /dev/null; then
+    if lsof -i :$PORT &>/dev/null; then
+        check "端口 $PORT" "ok" "已被占用"
+    else
+        check "端口 $PORT" "warn" "未被占用"
+    fi
+else
+    check "lsof" "warn" "未安装，无法检测端口"
+fi
+
+# WebSocket 连接测试
+if command -v nc &> /dev/null; then
+    if nc -z localhost $PORT 2>/dev/null; then
+        check "WebSocket 端口" "ok" "可连接"
+    else
+        check "WebSocket 端口" "warn" "无法连接"
+    fi
+else
+    check "netcat" "warn" "未安装，无法测试连接"
+fi
+
+echo ""
+echo "【4. 日志检查】"
+
+# 日志文件
+LOG_FILE="$INSTALL_DIR/logs/server.log"
+if [ -f "$LOG_FILE" ]; then
+    check "日志文件" "ok" "$LOG_FILE"
+
+    # 检查最近错误
+    if grep -i "error\|fail\|exception" "$LOG_FILE" | tail -3 | grep -q .; then
+        echo -e "  ${YELLOW}⚠${NC} 最近错误:"
+        grep -i "error\|fail\|exception" "$LOG_FILE" | tail -3 | sed 's/^/    /'
+    fi
+else
+    check "日志文件" "warn" "未找到"
+fi
+
+echo ""
+echo "【5. 配置文件】"
+
+# config.json
+CONFIG_FILE="$INSTALL_DIR/config.json"
+if [ -f "$CONFIG_FILE" ]; then
+    check "配置文件" "ok" "$CONFIG_FILE"
+else
+    check "配置文件" "warn" "未配置 (可选)"
+fi
+
+# history.json
+HISTORY_FILE="$INSTALL_DIR/history.json"
+if [ -f "$HISTORY_FILE" ]; then
+    TASKS=$(grep -c "taskId" "$HISTORY_FILE" 2>/dev/null || echo "0")
+    check "历史记录" "ok" "$TASKS 条任务"
+else
+    check "历史记录" "warn" "无记录"
+fi
+
+echo ""
+echo "【6. 快速修复建议】"
+
+# 建议
+if [ ! -f "$BIN_DIR/vibe-daemon" ]; then
+    echo -e "  1. 运行 ${YELLOW}bash install.sh${NC} 重新安装"
+fi
+
+if ! "$BIN_DIR/vibe-daemon" status &>/dev/null; then
+    echo -e "  2. 运行 ${YELLOW}vibe-daemon start${NC} 启动服务"
+fi
+
+echo -e "  3. 运行 ${YELLOW}vibe-daemon log${NC} 查看日志排查问题"
+echo -e "  4. 访问 https://github.com/yandexuanxuan/VibeWatcher 获取帮助"
+echo ""

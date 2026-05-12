@@ -1,0 +1,30 @@
+#!/bin/bash
+#
+# VibeWatcher CLI Wrapper (for global installation)
+# Automatically ensures daemon is running before executing commands
+#
+
+set -e
+
+INSTALL_DIR="${VIBEWATCH_HOME:-$HOME/.vibewatch}"
+DAEMON_BIN="$INSTALL_DIR/bin/vibe-daemon"
+VIBEWATCH_BIN="$INSTALL_DIR/bin/vibewatch"
+
+# Auto-start daemon if not running (non-blocking)
+ensure_daemon() {
+    if [ -f "$DAEMON_BIN" ]; then
+        "$DAEMON_BIN" start --if-not-running 2>/dev/null || true
+    fi
+}
+
+# Ensure daemon is running before executing commands
+ensure_daemon
+
+# Run the actual CLI
+if [ -f "$VIBEWATCH_BIN" ]; then
+    exec "$VIBEWATCH_BIN" "$@"
+else
+    echo "VibeWatcher CLI not found at $VIBEWATCH_BIN" >&2
+    echo "Run 'bash install.sh' first, or check VIBEWATCH_HOME environment variable" >&2
+    exit 1
+fi

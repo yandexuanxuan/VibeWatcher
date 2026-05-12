@@ -1,0 +1,42 @@
+export type Status = 'RUNNING' | 'WAITING_INPUT' | 'COMPLETED' | 'ERROR';
+export interface TaskEvent {
+    taskId: string;
+    type: 'stdout' | 'stderr' | 'exit' | 'prompt';
+    data: string;
+    timestamp: number;
+}
+export interface TaskState {
+    taskId: string;
+    status: Status;
+    exitCode?: number;
+    startTime: number;
+    lastOutput: string[];
+    lastOutputTime: number;
+}
+export interface WSMessage {
+    type: 'TASK_CREATED' | 'TASK_STATUS' | 'TASK_OUTPUT' | 'TASK_EXIT' | 'LIST_TASKS' | 'TASKS_LIST' | 'STOP_TASK' | 'TASK_SUMMARY' | 'TASK_PREDICTION' | 'TASK_STALL' | 'INTERPRET_TASK' | 'TASK_INTERPRETATION';
+    payload: unknown;
+}
+export interface TaskSummary {
+    taskId: string;
+    summaryPath: string;
+    duration: number;
+    keyword: string;
+    status: Status;
+}
+export interface TaskPrediction {
+    taskId: string;
+    estimatedRemaining: number;
+    totalEstimate: number;
+    basedOn: number;
+}
+export interface TaskStall {
+    taskId: string;
+    idleMs: number;
+}
+export interface TaskInterpretation {
+    taskId: string;
+    interpretation: string;
+}
+export declare const DEFAULT_PORT = 9234;
+export declare const DEFAULT_HOST = "localhost";

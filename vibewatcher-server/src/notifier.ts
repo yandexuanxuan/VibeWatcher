@@ -1,6 +1,6 @@
 import https from 'https';
 import { loadConfig } from './config';
-import { Status } from './types';
+import { Status } from 'vibewatcher-shared';
 
 interface TaskEvent {
   taskId: string;

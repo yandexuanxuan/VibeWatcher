@@ -1,5 +1,5 @@
 import { window, commands, env, OutputChannel, workspace } from 'vscode';
-import { TaskState, TaskSummary } from './types';
+import { TaskState, TaskSummary } from 'vibewatcher-shared';
 import { VSCodeWebSocketClient } from './websocket';
 
 let outputChannel: OutputChannel | null = null;

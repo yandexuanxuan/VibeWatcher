@@ -1,5 +1,5 @@
 import WebSocket from 'ws';
-import { WSMessage, DEFAULT_HOST, DEFAULT_PORT } from './types';
+import { WSMessage, DEFAULT_HOST, DEFAULT_PORT } from 'vibewatcher-shared';
 
 export { DEFAULT_HOST, DEFAULT_PORT };
 

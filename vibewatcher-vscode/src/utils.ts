@@ -1,4 +1,4 @@
-import { Status } from './types';
+import { Status } from 'vibewatcher-shared';
 
 export const STATUS_EMOJI: Record<Status, string> = {
   RUNNING: '🟢',

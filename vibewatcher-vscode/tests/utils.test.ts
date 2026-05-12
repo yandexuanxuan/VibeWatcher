@@ -1,5 +1,5 @@
 import { STATUS_EMOJI, formatDuration } from '../src/utils';
-import { Status } from '../src/types';
+import { Status } from 'vibewatcher-shared';
 
 describe('utils', () => {
   describe('STATUS_EMOJI', () => {

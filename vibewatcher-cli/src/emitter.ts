@@ -1,4 +1,4 @@
-import { WSMessage, Status, TaskSummary } from './types';
+import { WSMessage, Status, TaskSummary } from 'vibewatcher-shared';
 
 export function createTaskCreated(taskId: string, keyword?: string): WSMessage {
   return {

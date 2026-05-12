@@ -1,5 +1,5 @@
 import { StateStore, HistoryEntry } from './state-store';
-import { Status } from './types';
+import { Status } from 'vibewatcher-shared';
 
 type CreatedListener = (taskId: string) => void;
 type StatusChangeListener = (taskId: string, status: Status) => void;
@@ -90,6 +90,10 @@ export class TaskManager {
 
   listTasks() {
     return this.stateStore.listTasks();
+  }
+
+  getStateStore(): StateStore {
+    return this.stateStore;
   }
 
   onTaskCreated(cb: CreatedListener): UnsubscribeFn {

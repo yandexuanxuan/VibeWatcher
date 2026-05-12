@@ -1,11 +1,15 @@
 import { commands, window } from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+import { spawn, ChildProcess } from 'child_process';
 import { VSCodeWebSocketClient } from './websocket';
 import { StatusBar } from './status-bar';
 import { TaskTreeProvider, TaskTreeItem } from './task-tree';
 import { NotificationManager } from './notifications';
 import { registerCommands, showOutput, showSummary } from './commands';
 import { MiniPanel } from './mini-panel';
-import { TaskState, Status, DEFAULT_HOST, DEFAULT_PORT, TaskSummary, TaskPrediction } from './types';
+import { TaskState, Status, DEFAULT_HOST, DEFAULT_PORT, TaskSummary, TaskPrediction } from 'vibewatcher-shared';
 
 interface TaskPayload {
   taskId: string;
@@ -22,12 +26,110 @@ let statusBar: StatusBar | null = null;
 let taskTreeProvider: TaskTreeProvider | null = null;
 let notifications: NotificationManager | null = null;
 let miniPanel: MiniPanel | null = null;
+let daemonProcess: ChildProcess | null = null;
 
 function determineTaskStatus(tasks: TaskState[]): Status {
   if (tasks.some((t) => t.status === 'ERROR')) return 'ERROR';
   if (tasks.some((t) => t.status === 'WAITING_INPUT')) return 'WAITING_INPUT';
   if (tasks.some((t) => t.status === 'RUNNING')) return 'RUNNING';
   return 'COMPLETED';
+}
+
+// Get daemon binary path
+function getDaemonPath(): string {
+  const installDir = process.env.VIBEWATCH_HOME || path.join(os.homedir(), '.vibewatch');
+  const globalPath = path.join(installDir, 'bin', 'vibe-daemon');
+
+  if (fs.existsSync(globalPath)) {
+    return globalPath;
+  }
+
+  // Fall back to dev mode (relative to extension root)
+  const extRoot = path.join(__dirname, '..', '..', '..', '..', '..');
+  const devPath = path.join(extRoot, 'bin', 'vibe-daemon');
+
+  if (fs.existsSync(devPath)) {
+    return devPath;
+  }
+
+  return globalPath; // Return default even if not found (will fail gracefully)
+}
+
+// Check if server is reachable on WebSocket port
+function isServerReachable(): Promise<boolean> {
+  return new Promise((resolve) => {
+    try {
+      const WebSocket = require('ws');
+      const ws = new WebSocket(`ws://${DEFAULT_HOST}:${DEFAULT_PORT}`);
+
+      const timeout = setTimeout(() => {
+        ws.close();
+        resolve(false);
+      }, 2000);
+
+      ws.on('open', () => {
+        clearTimeout(timeout);
+        ws.close();
+        resolve(true);
+      });
+
+      ws.on('error', () => {
+        clearTimeout(timeout);
+        resolve(false);
+      });
+    } catch {
+      resolve(false);
+    }
+  });
+}
+
+// Wait for server to become available
+async function waitForServer(timeout: number = 10000): Promise<boolean> {
+  const startTime = Date.now();
+  const checkInterval = 500;
+
+  while (Date.now() - startTime < timeout) {
+    if (await isServerReachable()) {
+      return true;
+    }
+    await new Promise(r => setTimeout(r, checkInterval));
+  }
+  return false;
+}
+
+// Try to start the daemon
+async function tryStartDaemon(): Promise<void> {
+  const daemonPath = getDaemonPath();
+
+  if (!fs.existsSync(daemonPath)) {
+    console.log('[VibeWatcher] Daemon binary not found, skipping auto-start');
+    return;
+  }
+
+  return new Promise((resolve) => {
+    try {
+      daemonProcess = spawn(daemonPath, ['start', '--if-not-running'], {
+        detached: true,
+        stdio: 'ignore',
+        shell: true,
+      });
+
+      daemonProcess.unref();
+
+      // Wait briefly then check if server is available
+      setTimeout(async () => {
+        if (await waitForServer(5000)) {
+          console.log('[VibeWatcher] Server auto-started successfully');
+        } else {
+          console.log('[VibeWatcher] Server auto-start timed out');
+        }
+        resolve();
+      }, 1000);
+    } catch (err) {
+      console.log('[VibeWatcher] Failed to auto-start daemon:', err);
+      resolve();
+    }
+  });
 }
 
 export function activate(): void {
@@ -109,15 +211,55 @@ export function activate(): void {
     statusBar?.setStatus(determineTaskStatus(tasks));
   });
 
-  wsClient
-    .connect()
-    .then(() => {
-      statusBar?.show();
-      window.showInformationMessage('[VibeWatcher] Connected to server');
-    })
-    .catch(() => {
-      window.showWarningMessage('[VibeWatcher] Cannot connect to server. Make sure vibewatcher-server is running.');
+  wsClient.onDisconnect(() => {
+    statusBar?.setStatus('ERROR');
+  });
+
+  wsClient.onReconnect(() => {
+    statusBar?.setStatus('RUNNING');
+    window.showInformationMessage('[VibeWatcher] Reconnected to server');
+  });
+
+  wsClient.onReconnectFailed(() => {
+    window.showWarningMessage(
+      '[VibeWatcher] Lost connection to server',
+      'Reconnect'
+    ).then((choice) => {
+      if (choice === 'Reconnect') {
+        wsClient?.reconnect();
+      }
     });
+  });
+
+  // Try to start daemon if not running, then connect
+  isServerReachable().then(async (reachable) => {
+    if (!reachable) {
+      console.log('[VibeWatcher] Server not running, attempting auto-start...');
+      await tryStartDaemon();
+    }
+
+    if (wsClient) {
+      wsClient
+        .connect()
+        .then(() => {
+          statusBar?.show();
+          window.showInformationMessage('[VibeWatcher] Connected to server');
+        })
+        .catch(() => {
+          window.showWarningMessage(
+            '[VibeWatcher] Cannot connect to server. Server may not be started.',
+            'Start Server',
+            'View Instructions'
+          ).then((choice) => {
+            if (choice === 'Start Server') {
+              const terminal = window.createTerminal({ name: 'VibeWatcher' });
+              terminal.sendText('vibe-daemon start');
+              terminal.show();
+            }
+          });
+        });
+    }
+  });
 
   commands.registerCommand('vibewatcher.showTaskList', () => {
     commands.executeCommand('vibewatcher.taskList.focus');
@@ -139,4 +281,8 @@ function formatDuration(ms: number): string {
 export function deactivate(): void {
   wsClient?.close();
   statusBar?.dispose();
+  if (daemonProcess) {
+    daemonProcess.kill();
+    daemonProcess = null;
+  }
 }

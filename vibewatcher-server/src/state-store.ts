@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { TaskState, Status } from './types';
+import { TaskState, Status } from 'vibewatcher-shared';
 
 const HISTORY_PATH = path.join(os.homedir(), '.vibewatch', 'history.json');
 
@@ -27,6 +27,7 @@ export class StateStore {
       status: 'RUNNING' as Status,
       startTime: Date.now(),
       lastOutput: [],
+      lastOutputTime: Date.now(),
     };
     this.tasks.set(taskId, task);
     return task;
@@ -36,6 +37,9 @@ export class StateStore {
     const task = this.tasks.get(taskId);
     if (!task) return undefined;
     task.status = status;
+    if (status === 'RUNNING') {
+      task.lastOutputTime = Date.now();
+    }
     return task;
   }
 
@@ -43,6 +47,7 @@ export class StateStore {
     const task = this.tasks.get(taskId);
     if (!task) return undefined;
     task.lastOutput.push(line);
+    task.lastOutputTime = Date.now();
     if (task.lastOutput.length > this.maxOutputLines) {
       task.lastOutput.shift();
     }

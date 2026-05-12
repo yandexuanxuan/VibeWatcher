@@ -1,10 +1,11 @@
 {
   "name": "vibewatcher-cli",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "VibeWatcher CLI - Claude Code execution wrapper",
   "main": "dist/cli.js",
   "bin": {
     "vibewatch": "./bin/vibewatch",
+    "vibe": "./bin/vibe",
     "claude-code": "./bin/claude-code"
   },
   "scripts": {
@@ -15,6 +16,7 @@
   },
   "dependencies": {
     "uuid": "^9.0.0",
+    "vibewatcher-shared": "*",
     "ws": "^8.14.2",
     "yargs": "^17.7.2"
   },

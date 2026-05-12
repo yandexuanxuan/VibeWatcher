@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-VibeWatcher monitors Claude Code CLI execution and broadcasts state changes over WebSocket to a VSCode extension. Three independent packages, no shared workspace — types are duplicated across all three `types.ts` files.
+VibeWatcher monitors Claude Code CLI execution and broadcasts state changes over WebSocket to a VSCode extension. Four packages managed via npm workspaces — shared types live in `vibewatcher-shared`.
 
-**Current status: v0.2 is complete.** v0.3 (阻塞检测、AI 解释器、硬件联动) is not yet started.
+**Current status: v1.0 is complete.**
 
 ## Build & Test Commands
 
@@ -28,9 +28,18 @@ cd vibewatcher-cli && npm run build && npm test
 cd vibewatcher-server && npm run build && npm test
 cd vibewatcher-vscode && npm run compile
 
+# One-click install
+bash install.sh
+
+# Daemon management
+vibe-daemon start              # Start server in background
+vibe-daemon stop               # Stop server
+vibe-daemon status             # Check server status
+vibe-daemon log                # View server logs
+
 # VSCode extension packaging
 cd vibewatcher-vscode && vsce package
-code --install-extension vibewatcher-0.1.0.vsix --force
+code --install-extension vibewatcher-0.4.0.vsix --force
 ```
 
 ## Architecture
@@ -67,11 +76,13 @@ VSCode Extension (vibewatcher-vscode)
 
 ## Key Design Decisions
 
-- CLI gracefully degrades to standalone mode if server is unavailable
+- **Daemon mode**: Server runs in background via `vibe-daemon` script, with PID file at `~/.vibewatch/run/vibewatcher.pid`
+- **Auto-start**: CLI, VSCode extension, and `vibe` wrapper all auto-start daemon if not running
+- **Graceful degradation**: CLI continues in standalone mode if server unavailable
 - Server auto-increments port on conflict (9234–9237 range, 3 retries)
 - Prompt detection uses fixed regex patterns (no LLM) — see `vibewatcher-cli/src/matcher.ts`
 - CLI receives incoming messages via `WebSocketClient.onMessage()` for STOP_TASK support
-- VSCode extension has no automated tests (requires @vscode/test-electron)
+- VSCode extension auto-starts daemon on activation if not already running
 - All packages target ES2020, commonjs module, TypeScript strict mode
 - .vscodeignore excludes src/, node_modules/, tsconfig.json from .vsix packaging
 
@@ -89,20 +100,51 @@ Press F5 to launch the Extension Development Host. Configured in `.vscode/launch
 ## Project Structure
 
 ```
-vibewatcher-cli/      # CLI Wrapper — spawns process, emits WS events, receives STOP_TASK
-  src/summary.ts      # Execution summary generator (Markdown, file changes, TODOs)
-vibewatcher-server/    # WS Event Server — TaskManager + StateStore
-  src/notifier.ts     # Mobile notifications: ServerChan (微信) / Telegram / Slack
-  src/config.ts       # ~/.vibewatch/config.json reader
-vibewatcher-vscode/    # VSCode Extension — StatusBar + TreeView + Notifications
-  src/mini-panel.ts    # Mini output panel (WebviewPanel, always-on-top within VSCode)
+VibeWatcher/
+├── bin/                     # Daemon manager scripts
+│   ├── vibe-daemon          # Background service manager (start/stop/status/log)
+│   └── vibe                 # Global CLI wrapper (auto-starts daemon)
+├── install.sh               # One-click installer
+├── vibewatcher-shared/     # Shared types and constants (npm workspace)
+│   └── src/types.ts        # Status, TaskState, WSMessage, TaskSummary, etc.
+├── vibewatcher-cli/        # CLI Wrapper
+│   ├── src/
+│   │   ├── cli.ts          # Main entry, auto-starts daemon
+│   │   ├── daemon-client.ts # CLI daemon communication
+│   │   ├── spawner.ts      # Child process management
+│   │   ├── websocket.ts    # WebSocket client
+│   │   ├── matcher.ts      # Prompt detection (regex patterns)
+│   │   ├── emitter.ts      # Event construction
+│   │   ├── parser.ts       # Line parsing
+│   │   └── summary.ts      # Execution summary generator
+│   └── bin/                # CLI entry points
+├── vibewatcher-server/     # WS Event Server
+│   ├── src/
+│   │   ├── server.ts       # Main entry, daemon integration
+│   │   ├── daemon-server.ts # PID file management, signal handling
+│   │   ├── vibewatcher-server.ts # WebSocket server core
+│   │   ├── task-manager.ts # Task lifecycle management
+│   │   ├── state-store.ts  # In-memory state + history
+│   │   ├── notifier.ts     # Mobile notifications
+│   │   └── config.ts       # ~/.vibewatch/config.json reader
+│   └── dist/               # Compiled JS (bin/vibewatcher-server)
+├── vibewatcher-vscode/     # VSCode Extension
+│   ├── src/
+│   │   ├── extension.ts   # Auto-starts daemon on activation
+│   │   ├── status-bar.ts  # Status bar indicator
+│   │   ├── task-tree.ts   # Task list TreeView
+│   │   ├── notifications.ts # Desktop notifications
+│   │   ├── commands.ts    # VSCode commands
+│   │   ├── mini-panel.ts  # Mini output panel
+│   │   └── websocket.ts   # WebSocket client
+│   └── media/icon.svg
 .vscode/               # Debug config (launch.json) and tasks
-docs/                  # PRD.md (v0.1), PRD1.md (v0.2/v0.3), LEARNING_NOTES.md
+docs/                  # PRD.md, LEARNING_NOTES.md
 ```
 
 ## Important Notes
 
-- When modifying WebSocket message types, update all three `types.ts` files (no shared package)
+- Shared types are in `vibewatcher-shared/src/types.ts` — all packages import from `vibewatcher-shared`
 - `vibewatcher-server/` had an independent `.git` directory — it has been removed, this repo is the single source of truth
 - Root `package.json` provides workspace-level build/test/clean scripts
 - Security: taskId is validated with UUID regex before use in file paths

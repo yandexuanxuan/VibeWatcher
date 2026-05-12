@@ -13,10 +13,11 @@ export interface TaskState {
   exitCode?: number;
   startTime: number;
   lastOutput: string[];
+  lastOutputTime: number;
 }
 
 export interface WSMessage {
-  type: 'TASK_CREATED' | 'TASK_STATUS' | 'TASK_OUTPUT' | 'TASK_EXIT' | 'LIST_TASKS' | 'TASKS_LIST' | 'STOP_TASK' | 'TASK_SUMMARY' | 'TASK_PREDICTION';
+  type: 'TASK_CREATED' | 'TASK_STATUS' | 'TASK_OUTPUT' | 'TASK_EXIT' | 'LIST_TASKS' | 'TASKS_LIST' | 'STOP_TASK' | 'TASK_SUMMARY' | 'TASK_PREDICTION' | 'TASK_STALL' | 'INTERPRET_TASK' | 'TASK_INTERPRETATION';
   payload: unknown;
 }
 
@@ -33,6 +34,16 @@ export interface TaskPrediction {
   estimatedRemaining: number;
   totalEstimate: number;
   basedOn: number;
+}
+
+export interface TaskStall {
+  taskId: string;
+  idleMs: number;
+}
+
+export interface TaskInterpretation {
+  taskId: string;
+  interpretation: string;
 }
 
 export const DEFAULT_PORT = 9234;

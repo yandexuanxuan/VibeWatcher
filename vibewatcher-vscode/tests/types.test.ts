@@ -6,7 +6,7 @@ import {
   TaskPrediction,
   DEFAULT_PORT,
   DEFAULT_HOST,
-} from '../src/types';
+} from 'vibewatcher-shared';
 
 describe('types', () => {
   describe('Status', () => {

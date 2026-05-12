@@ -1,5 +1,5 @@
 import { StateStore } from '../src/state-store';
-import { Status } from '../src/types';
+import { Status } from 'vibewatcher-shared';
 
 describe('StateStore', () => {
   let store: StateStore;

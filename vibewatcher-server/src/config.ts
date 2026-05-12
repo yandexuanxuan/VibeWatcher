@@ -20,11 +20,28 @@ export interface NotificationConfig {
     WAITING_INPUT?: boolean;
     COMPLETED?: boolean;
     ERROR?: boolean;
+    STALL_DETECTED?: boolean;
   };
+}
+
+export interface StallDetectionConfig {
+  enabled: boolean;
+  timeoutMs: number;
+  checkIntervalMs: number;
+}
+
+export interface AIConfig {
+  provider: 'claude' | 'openai' | 'ollama';
+  apiKey?: string;
+  model?: string;
+  baseUrl?: string;
+  enabled: boolean;
 }
 
 export interface VibeWatchConfig {
   notifications?: NotificationConfig;
+  stallDetection?: StallDetectionConfig;
+  ai?: AIConfig;
 }
 
 const CONFIG_PATH = path.join(os.homedir(), '.vibewatch', 'config.json');
@@ -46,4 +63,30 @@ export function ensureConfigDir(): void {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
+}
+
+const DEFAULT_STALL_TIMEOUT_MS = 300000; // 5 minutes
+const DEFAULT_STALL_CHECK_INTERVAL_MS = 30000; // 30 seconds
+
+export function getStallDetectionConfig(): StallDetectionConfig {
+  const config = loadConfig();
+  const stallConfig = config.stallDetection;
+  return {
+    enabled: stallConfig?.enabled ?? true,
+    timeoutMs: stallConfig?.timeoutMs ?? DEFAULT_STALL_TIMEOUT_MS,
+    checkIntervalMs: stallConfig?.checkIntervalMs ?? DEFAULT_STALL_CHECK_INTERVAL_MS,
+  };
+}
+
+export function getAIConfig(): AIConfig | null {
+  const config = loadConfig();
+  const ai = config.ai;
+  if (!ai || !ai.enabled) return null;
+  return {
+    provider: ai.provider ?? 'claude',
+    apiKey: ai.apiKey,
+    model: ai.model,
+    baseUrl: ai.baseUrl,
+    enabled: true,
+  };
 }

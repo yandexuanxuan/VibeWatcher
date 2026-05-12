@@ -1,7 +1,37 @@
+# Source code
 src/**
 tests/**
+
+# Configuration
 tsconfig.json
-node_modules/**
+*.test.ts
+jest.config.js
 .vscode/**
+.vscodeignore
 package-simple.json
+
+# 排除所有其他目录，只保留当前扩展的 node_modules
+../*
+node_modules/@babel
+node_modules/@bcoe
+node_modules/@istanbuljs
+node_modules/@jest
+node_modules/@jridgewell
+node_modules/@sinclair
+node_modules/@sinonjs
+node_modules/@types
+node_modules/@vscode
+node_modules/undici-types
+node_modules/.bin
+node_modules/.package-lock.json
+
+# Git
+.git/
 .gitignore
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

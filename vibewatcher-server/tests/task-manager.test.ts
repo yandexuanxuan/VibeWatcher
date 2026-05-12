@@ -1,5 +1,5 @@
 import { TaskManager } from '../src/task-manager';
-import { Status } from '../src/types';
+import { Status } from 'vibewatcher-shared';
 
 describe('TaskManager', () => {
   let manager: TaskManager;

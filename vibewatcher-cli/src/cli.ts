@@ -5,6 +5,7 @@ import { spawnProcess } from './spawner';
 import { splitLines } from './parser';
 import { matchPrompt } from './matcher';
 import { WebSocketClient } from './websocket';
+import { ensureDaemonRunning } from './daemon-client';
 import {
   createTaskCreated,
   createTaskStatus,
@@ -13,7 +14,7 @@ import {
   createTaskSummary,
 } from './emitter';
 import { generateSummary, extractKeyword } from './summary';
-import { Status } from './types';
+import { Status } from 'vibewatcher-shared';
 
 interface TaskContext {
   taskId: string;
@@ -41,6 +42,12 @@ async function runTask(args: { command: string[] }): Promise<void> {
 
   const keyword = extractKeyword(args.command.join(' '));
 
+  // Ensure daemon is running before connecting
+  const daemonStatus = await ensureDaemonRunning();
+  if (!daemonStatus.running) {
+    console.warn('[VibeWatcher] Warning: Server not running, running in standalone mode');
+  }
+
   try {
     context.wsClient = new WebSocketClient();
     await context.wsClient.connect();
@@ -55,7 +62,7 @@ async function runTask(args: { command: string[] }): Promise<void> {
       }
     });
   } catch {
-    console.error('[VibeWatcher] Warning: Cannot connect to server, running in standalone mode');
+    console.warn('[VibeWatcher] Warning: Cannot connect to server, running in standalone mode');
     context.wsClient = null;
   }
 
