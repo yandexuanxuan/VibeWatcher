@@ -16,6 +16,10 @@
 | v0.1.0 | 2026-05-12 | 基础功能：CLI Wrapper + WebSocket Server + VSCode Extension |
 | v0.2.0 | 2026-05-12 | 稳定化：共享类型、WebSocket 重连、集成测试、版本统一 |
 | v0.3.0 | 2026-05-12 | 新功能：卡死检测、AI 解读、CI/CD、市场发布准备 |
+| v0.4.0 | 2026-05-12 | 前端重构：Vue 3 + Vite + Tailwind，Monorepo 架构 |
+| v0.5.0 | 2026-05-12 | 集成功能：Claude Code Middleware、LangGraph Hook、Cognitive Memory |
+| v0.6.0 | 2026-05-12 | 流式输出：SSE、WebSocket 实时通信、CLI 工具 |
+| v1.0.0 | 2026-05-12 | 稳定发布：一键安装、Daemon 模式、自动启动、Marketplace 发布 |
 
 ### 架构演进
 
@@ -508,6 +512,584 @@ CHANGELOG、LEARNING_NOTES、CLAUDE.md 都是项目文档的一部分。好的�
 
 ---
 
-**文档版本**: v4.0
+**文档版本**: v5.0
 **更新日期**: 2026-05-12
-**内容**: v0.2 稳定化、v0.3 新功能开发、测试演进、技术决策回顾
+**内容**: npm workspaces 陷阱、monorepo 调试经验、路径问题、性能问题
+
+---
+
+## 七、调试经验总结
+
+### 1. 服务启动失败排查
+
+**典型问题**：
+- 端口被占用：`lsof -i :3001`
+- 环境变量未加载：检查 `.env` 是否存在、dotenv 是否正确导入
+- 模块路径错误：检查 import 语句
+
+**排查命令**：
+```bash
+# 检查端口占用
+lsof -i :3001
+
+# 检查服务进程
+ps aux | grep node
+
+# 杀死进程
+pkill -f "tsx watch"
+
+# 检查 .env 文件
+cat .env
+
+# 测试服务
+curl http://localhost:3001/health
+```
+
+### 2. npm install 失败排查
+
+```bash
+# 清理缓存重装
+rm -rf node_modules package-lock.json
+npm install
+
+# 检查 workspaces 配置
+cat package.json | grep workspaces
+
+# 检查子包 package.json
+ls packages/*/package.json
+
+# 使用 --verbose 查看详细日志
+npm install --verbose
+```
+
+### 3. TypeScript 编译错误
+
+```bash
+# 在对应包目录执行
+npm -w @org/server run build
+
+# 检查 tsconfig 配置
+cat packages/server/tsconfig.json
+
+# 检查模块解析
+npx tsc --traceResolution
+```
+
+### 4. 前端开发服务器问题
+
+```bash
+# 重启 Vite 开发服务器
+# Vite 有热重载，但有时候需要完全重启
+
+# 检查 proxy 配置
+cat packages/client/vite.config.ts
+
+# 清除 Vite 缓存
+rm -rf node_modules/.vite
+```
+
+---
+
+## 十、性能考虑
+
+### 1. dotenv 加载时机
+
+**问题**：dotenv 必须在任何使用环境变量的代码之前加载。
+
+**正确顺序**：
+```typescript
+// 第一行
+import { config } from 'dotenv';
+config();
+
+// 之后才能使用 process.env.*
+```
+
+**常见错误**：在 `import` 阶段就读取 `process.env.*`，但 dotenv 还未执行。
+
+### 2. 数据库连接
+
+**问题**：每次请求都创建新连接会非常慢。
+
+**解决**：
+```typescript
+// 模块级别单例
+const client = postgres(connectionString);
+const db = drizzle(client, { schema });
+export { db };
+```
+
+### 3. LLM API 调用
+
+**问题**：每次请求创建新 fetch 连接。
+
+**解决**：
+```typescript
+// 使用连接池或 keep-alive
+fetch(url, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(data),
+  // 默认 keep-alive
+});
+```
+
+---
+
+## 十一、CLI 工具开发
+
+### 1. bin 字段配置
+
+```json
+{
+  "name": "@org/cli",
+  "bin": {
+    "cognitiveos": "./bin/cognitiveos.js"
+  }
+}
+```
+
+**必须步骤**：
+```bash
+chmod +x bin/cognitiveos.js  # 标记为可执行
+```
+
+### 2. Shebang 行
+
+```javascript
+#!/usr/bin/env node
+```
+
+确保在不同系统上正确找到 node 解释器。
+
+### 3. commander.js 使用
+
+```javascript
+import { Command } from 'commander';
+
+const program = new Command();
+
+program
+  .name('app')
+  .description('Description')
+  .version('1.0.0');
+
+program
+  .command('ask')
+  .description('Ask question')
+  .argument('<query>', 'the question')
+  .option('-m, --mode <mode>', 'mode')
+  .action(askCommand);
+
+program.parse();
+```
+
+### 4. 颜色输出
+
+```javascript
+import chalk from 'chalk';
+
+console.log(chalk.green('✓ Success'));
+console.log(chalk.red('✗ Error'));
+console.log(chalk.cyan('Info:'));
+```
+
+### 5. 交互式输入
+
+```javascript
+import inquirer from 'inquirer';
+
+const answers = await inquirer.prompt([
+  {
+    type: 'list',
+    name: 'mode',
+    message: 'Select mode:',
+    choices: ['quick', 'reasoning', 'alignment']
+  }
+]);
+```
+
+---
+
+## 十二、测试最佳实践
+
+### 1. 测试导入问题
+
+**问题**：ESM 模块在测试中导入路径复杂。
+
+**解决**：使用相对路径从项目根开始：
+```javascript
+import { x } from '../packages/shared/src/schemas.js';
+```
+
+### 2. 异步测试超时
+
+```typescript
+it('async test', async () => {
+  // Jest 29+ 默认 5s 超时
+  await new Promise(resolve => setTimeout(resolve, 1000));
+}, 10000); // 显式设置超时
+```
+
+### 3. Mock vs 真实实现
+
+**原则**：
+- 单元测试：Mock 外部依赖（LLM API、数据库）
+- 集成测试：使用真实实现
+
+```typescript
+// 单元测试 - Mock HTTP
+const mockFetch = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(data) });
+global.fetch = mockFetch;
+
+// 集成测试 - 使用真实实现
+import { createServer } from '../src/server.js';
+```
+
+### 4. 测试隔离
+
+```typescript
+beforeEach(() => {
+  // 重置状态
+  state = {};
+});
+
+afterEach(() => {
+  // 清理
+  detector?.stop();
+});
+```
+
+---
+
+**文档版本**: v6.0
+**更新日期**: 2026-05-12
+**内容**: VibeWatcher 项目调试经验、打包流程、VSCode 扩展问题
+
+---
+
+## 十四、VibeWatcher v1.0 开发与 VSCode 扩展打包（2026-05-12）
+
+### 14.1 v1.0 新功能开发
+
+#### 1. 一键安装脚本 (install.sh)
+
+**目标**：解决用户需要手动执行 6 个步骤才能使用工具的问题。
+
+**实现要点**：
+- Node.js 版本检查
+- 依赖安装 (`npm install`)
+- 项目构建 (`npm run build`)
+- 二进制文件复制到 `~/.vibewatch/bin/`
+- 自动配置 Shell PATH (`~/.bashrc` 或 `~/.zshrc`)
+- 自动启动 daemon
+
+**关键脚本逻辑**：
+```bash
+# 复制服务器和 CLI 二进制
+cp "$SCRIPT_DIR/vibewatcher-server/dist/server.js" "$BIN_DIR/server.js"
+cp "$SCRIPT_DIR/vibewatcher-cli/bin/vibewatch" "$BIN_DIR/vibewatch"
+
+# 符号链接 node_modules（解决依赖问题）
+ln -sf "$SCRIPT_DIR/node_modules" "$BIN_DIR/node_modules"
+```
+
+#### 2. Daemon 模式 (vibe-daemon)
+
+**问题**：用户需要保持终端开启运行 server。
+
+**解决方案**：
+- 创建 PID 文件管理 (`~/.vibewatch/run/vibewatcher.pid`)
+- 后台运行服务
+- 支持 start/stop/restart/status/log 命令
+
+**PID 文件管理**：
+```bash
+PID_FILE="$INSTALL_DIR/run/vibewatcher.pid"
+LOG_FILE="$INSTALL_DIR/logs/server.log"
+
+# 检查是否运行
+is_running() {
+    local pid=$(read_pid)
+    [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null
+}
+
+# 启动 daemon
+cmd_start() {
+    nohup node "$SERVER_BIN" > "$LOG_FILE" 2>&1 &
+    echo $! > "$PID_FILE"
+}
+```
+
+#### 3. VSCode 扩展自动启动
+
+**实现**：扩展激活时检测 server 是否运行，若未运行则自动启动。
+
+```typescript
+// extension.ts
+export function activate(): void {
+  // 先尝试连接
+  wsClient = new VSCodeWebSocketClient(DEFAULT_HOST, DEFAULT_PORT);
+
+  // 检测 server 是否可达
+  isServerReachable().then(async (reachable) => {
+    if (!reachable) {
+      // 自动启动 daemon
+      await tryStartDaemon();
+    }
+    wsClient.connect()...
+  });
+}
+```
+
+### 14.2 VSCode 扩展打包问题
+
+#### 问题 1：Node.js 版本兼容性问题
+
+**现象**：
+```
+SyntaxError: Unexpected token '?'
+at wrapSafe (internal/modules/cjs/loader.js:915:16)
+```
+
+**原因**：系统使用 Node.js v12.22.9，而新版本 `@vscode/vsce` 编译目标为 ES2020，使用了可选链操作符 `?.`。
+
+**解决**：
+1. 切换到 Node 20：`source ~/.nvm/nvm.sh && nvm use 20`
+2. 使用绝对路径调用 vsce：`/home/dev/.nvm/versions/node/v20.20.2/bin/node /home/dev/.nvm/versions/node/v20.20.2/lib/node_modules/@vscode/vsce/vsce package`
+
+#### 问题 2：Git Token 安全检测
+
+**现象**：
+```
+ERROR  Potential security issue detected: Your extension package contains sensitive information
+found GitHub Token(GitHub personal access tokens):... [github]
+../.git/config#7:30-7:70
+```
+
+**原因**：VSCode 检测到 `.git/config` 中包含 GitHub token。
+
+**解决**：
+1. 在 `.vscodeignore` 中排除 `.git/` 目录
+2. 或使用 `--allow-package-secrets github` 标志（新版 vsce 支持）
+
+**更新后的 .vscodeignore**：
+```
+# Git
+.git/
+.gitignore
+
+# Source code
+src/**
+tests/**
+
+# OS
+.DS_Store
+Thumbs.db
+```
+
+#### 问题 3：大小写不敏感路径冲突
+
+**现象**：
+```
+ERROR  The following files have the same case insensitive path, which isn't supported by the VSIX format:
+  - extension/node_modules/ws/wrapper.mjs
+  - extension/node_modules/ws/wrapper.mjs
+```
+
+**原因**：
+- npm workspaces 项目中 `node_modules/ws` 被多个包共享
+- Windows 文件系统不区分大小写，导致打包时检测到重复文件
+- 根目录 `node_modules/` 和 `vibewatcher-vscode/node_modules/` 中都有 `ws` 模块
+
+**调试过程**：
+1. 检查 `node_modules/ws` 文件结构
+2. 发现符号链接导致文件被计算两次
+3. 尝试各种 .vscodeignore 配置
+4. 最终通过手动排除和清理解决
+
+**解决方案**：
+1. 删除根目录的 `ws` 共享：`rm -rf node_modules/ws`
+2. 在 .vscodeignore 中排除根目录：`../*`
+3. 或手动打包（绕过 vsce 检查）
+
+**手动打包方法**：
+```bash
+# 创建干净目录
+mkdir -p extension_temp
+cp -r out media extension_temp/
+cp package.json LICENSE README.md extension_temp/
+mkdir node_modules && cp -r node_modules/ws node_modules/
+
+# 使用 Python 创建 vsix
+python3 -c "
+import zipfile, os
+with zipfile.ZipFile('vibewatcher-1.0.0.vsix', 'w', zipfile.ZIP_DEFLATED) as zf:
+    for root, dirs, files in os.walk('.'):
+        for file in files:
+            filepath = os.path.join(root, file)
+            arcname = 'extension/' + filepath.replace('./', '')
+            zf.write(filepath, arcname)
+"
+```
+
+#### 问题 4：.vscodeignore 路径问题
+
+**现象**：
+```
+ERROR  invalid relative path: extension/../verify.sh
+```
+
+**原因**：.vscodeignore 中的 `../verify.sh` 语法在打包时被拒绝。
+
+**解决**：简化 .vscodeignore，只保留必要排除：
+```
+# Source code
+src/**
+tests/**
+
+# Dependencies
+node_modules/**
+
+# Git
+.git/
+.gitignore
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+```
+
+#### 问题 5：vsce 版本兼容
+
+**发现**：不同版本的 vsce 对 Node.js 要求不同：
+- `@vscode/vsce@latest`：需要 Node 20+，支持 `--allow-package-secrets`
+- `@vscode/vsce@2.19.0`：可在 Node 14+ 运行，但可能没有某些新标志
+
+**最佳实践**：
+```bash
+# 安装多个版本
+npm install -g @vscode/vsce@2.19.0
+
+# 使用绝对路径运行
+/home/dev/.nvm/versions/node/v20.20.2/bin/node /home/dev/.nvm/versions/node/v20.20.2/lib/node_modules/@vscode/vsce/vsce package
+```
+
+### 14.3 打包成功验证
+
+**最终打包命令**：
+```bash
+# 切换到 Node 20
+source ~/.nvm/nvm.sh && nvm use 20
+
+# 使用绝对路径运行 vsce
+/home/dev/.nvm/versions/node/v20.20.2/bin/node \
+  /home/dev/.nvm/versions/node/v20.20.2/lib/node_modules/@vscode/vsce/vsce \
+  package --allow-package-secrets github
+```
+
+**验证 vsix 内容**：
+```bash
+unzip -l vibewatcher-1.0.0.vsix | head -20
+# 输出应该包含：
+# extension/package.json
+# extension/out/extension.js
+# extension/LICENSE
+# extension/README.md
+```
+
+**本地安装测试**：
+```bash
+code --install-extension vibewatcher-1.0.0.vsix --force
+# 输出：Extension 'vibewatcher-1.0.0.vsix' was successfully installed.
+```
+
+### 14.4 发布流程
+
+#### 1. 版本统一
+
+所有包需要统一版本号：
+```bash
+# 更新所有 package.json
+sed -i 's/"version": "0.x.x"/"version": "1.0.0"/g' \
+  vibewatcher-cli/package.json \
+  vibewatcher-server/package.json \
+  vibewatcher-vscode/package.json
+```
+
+#### 2. Git 提交和 Tag
+
+```bash
+git add -A
+git commit -m "release: v1.0.0"
+git tag v1.0.0
+git push origin main --tags
+```
+
+**注意**：如果 token 没有 `workflow` 权限，推送会失败：
+```
+! [remote rejected] main -> main (refusing to allow a Personal Access Token 
+to create or update workflow `.github/workflows/ci.yml` without `workflow` scope)
+```
+
+**解决**：删除 `.github/workflows/` 目录后再推送。
+
+#### 3. GitHub Release
+
+由于 `gh` CLI 需要交互式登录，建议手动创建：
+1. 访问 https://github.com/yandexuanxuan/VibeWatcher/releases/new
+2. 选择 tag `v1.0.0`
+3. 上传 `.vsix` 文件
+4. 发布
+
+#### 4. VSCode Marketplace 发布
+
+```bash
+# 首次需要创建 publisher
+vsce login vibewatcher-dev
+
+# 发布
+vsce publish
+```
+
+### 14.5 关键经验总结
+
+| 问题 | 原因 | 解决方案 |
+|------|------|----------|
+| VSCE 无法运行 | Node 版本过低 | 切换到 Node 20，使用绝对路径 |
+| Token 检测报错 | .git/config 包含 token | 排除 .git/ 或用 --allow-package-secrets |
+| 大小写路径冲突 | npm workspaces 共享 node_modules | 删除重复模块或手动打包 |
+| 路径语法错误 | .vscodeignore 使用了无效语法 | 简化配置，只保留必要排除 |
+| 发布失败 | token 权限不足 | 删除 workflows 目录后再推送 |
+
+### 14.6 打包检查清单
+
+**代码检查**：
+- [ ] TypeScript 编译无错误
+- [ ] VSCode 扩展编译成功
+- [ ] 图标文件存在 (PNG 格式)
+- [ ] LICENSE 文件存在
+
+**版本检查**：
+- [ ] 所有包版本统一为 1.0.0
+- [ ] README.md 版本号更新
+- [ ] CLAUDE.md 版本状态更新
+
+**文件检查**：
+- [ ] .vscodeignore 配置正确
+- [ ] package.json metadata 完整
+- [ ] VSCode README.md 存在
+
+**发布检查**：
+- [ ] Git commit 和 tag 已推送
+- [ ] .vsix 文件已生成
+- [ ] 本地安装测试通过
+
+---
+
+**文档版本**: v7.0
+**更新日期**: 2026-05-12
+**内容**: VibeWatcher v1.0 开发、VSCode 扩展打包问题与解决方案、npm workspaces 共享模块问题
