@@ -30,3 +30,7 @@ coverage/
 # Temporary files
 *.tmp
 *.temp
+
+# IDE and personal docs (not for open source)
+.vscode/
+docs/
