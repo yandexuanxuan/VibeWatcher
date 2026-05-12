@@ -25,11 +25,13 @@ describe('types', () => {
         status: 'RUNNING',
         startTime: Date.now(),
         lastOutput: [],
+        lastOutputTime: Date.now(),
       };
       expect(task.taskId).toBe('test-123');
       expect(task.status).toBe('RUNNING');
       expect(task.startTime).toBeDefined();
       expect(task.lastOutput).toEqual([]);
+      expect(task.lastOutputTime).toBeDefined();
     });
 
     it('should allow optional exitCode', () => {
@@ -38,6 +40,7 @@ describe('types', () => {
         status: 'COMPLETED',
         startTime: Date.now(),
         lastOutput: [],
+        lastOutputTime: Date.now(),
         exitCode: 0,
       };
       expect(task.exitCode).toBe(0);
@@ -49,6 +52,7 @@ describe('types', () => {
         status: 'RUNNING',
         startTime: Date.now(),
         lastOutput: ['line 1', 'line 2', 'line 3'],
+        lastOutputTime: Date.now(),
       };
       expect(task.lastOutput).toHaveLength(3);
       expect(task.lastOutput[0]).toBe('line 1');

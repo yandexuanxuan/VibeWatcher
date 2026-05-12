@@ -40,3 +40,20 @@ coverage/
 
 # Daemon runtime files (local install)
 .vibewatch/
+
+# Task execution summaries (local, auto-generated)
+summaries/
+
+# Internal docs & planning (not meant for public repo)
+docs/superpowers/
+docs/LEARNING_NOTES.md
+
+# IDE
+.idea/
+.vscode/launch.json
+*.swp
+*.swo
+*~
+
+# macOS
+._*

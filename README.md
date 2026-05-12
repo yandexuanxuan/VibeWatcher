@@ -240,25 +240,6 @@ npm run clean
 
 ---
 
-## 命令参考
-
-```bash
-# 构建
-npm run build       # 构建全部三个包
-npm run clean        # 清理编译产物
-
-# 测试
-npm test            # 运行全部测试
-cd vibewatcher-cli && npm test      # 只测 CLI
-cd vibewatcher-server && npm test   # 只测 Server
-
-# Server
-node dist/server.js                 # 默认端口 9234
-VIBEWATCH_PORT=9235 node dist/server.js  # 指定端口
-```
-
----
-
 ## 状态机
 
 ```
@@ -285,15 +266,17 @@ VibeWatcher/
 │   ├── vibe-stress-test    # 压力测试
 │   └── vibe-release-checklist  # 发布检查清单
 ├── install.sh              # 一键安装脚本
+├── vibewatcher-shared/     # 共享类型定义 (npm workspace)
+│   └── src/types.ts        # Status, TaskState, WSMessage, TaskSummary, etc.
 ├── vibewatcher-cli/        # CLI Wrapper
 │   ├── src/
 │   │   ├── cli.ts          # 主入口
 │   │   ├── spawner.ts      # 子进程管理
 │   │   ├── websocket.ts    # WebSocket 客户端
-│   │   ├── matcher.ts      # Prompt 检测
+│   │   ├── matcher.ts      # Prompt 检测 (正则模式匹配)
 │   │   ├── emitter.ts      # 事件构造
 │   │   ├── parser.ts       # 行解析
-│   │   ├── summary.ts      # 摘要生成
+│   │   ├── summary.ts      # 执行摘要生成
 │   │   └── daemon-client.ts # Daemon 通信
 │   └── tests/              # 单元测试
 ├── vibewatcher-server/     # WebSocket Server
@@ -301,25 +284,30 @@ VibeWatcher/
 │   │   ├── server.ts       # 主入口 (Daemon 支持)
 │   │   ├── daemon-server.ts # PID 文件管理
 │   │   ├── vibewatcher-server.ts # 服务器核心
-│   │   ├── task-manager.ts # 任务生命周期
-│   │   ├── state-store.ts  # 内存状态 + 历史
-│   │   ├── notifier.ts     # 移动端通知
-│   │   ├── stall-detector.ts # 卡死检测
-│   │   ├── ai-interpreter.ts # AI 解读
-│   │   └── config.ts       # 配置管理
-│   └── tests/              # 单元测试
+│   │   ├── task-manager.ts # 任务生命周期管理
+│   │   ├── state-store.ts  # 内存状态 + 历史记录 + 耗时预测
+│   │   ├── stall-detector.ts # 卡死检测 (无输出超时告警)
+│   │   ├── ai-interpreter.ts # AI 状态解读 (LLM)
+│   │   ├── notifier.ts     # 移动端通知 (Telegram/Slack/Server酱)
+│   │   ├── config.ts       # 配置管理 (~/.vibewatch/config.json)
+│   │   └── llm/            # LLM providers (OpenAI/Ollama)
+│   └── tests/              # 单元测试 + 集成测试
 ├── vibewatcher-vscode/     # VSCode Extension
 │   ├── src/
 │   │   ├── extension.ts    # 入口 (自动启动服务)
-│   │   ├── status-bar.ts   # 状态栏
+│   │   ├── status-bar.ts   # 状态栏指示器
 │   │   ├── task-tree.ts    # 任务树视图
 │   │   ├── notifications.ts # 桌面通知
-│   │   ├── commands.ts     # 命令
-│   │   ├── mini-panel.ts   # 迷你输出面板
+│   │   ├── commands.ts     # 命令注册
+│   │   ├── mini-panel.ts   # 迷你输出面板 (Webview)
+│   │   ├── utils.ts        # 工具函数
 │   │   └── websocket.ts    # WebSocket 客户端
 │   ├── media/icon.svg      # 图标
-│   └── README.md           # VSCode 市场说明
+│   └── tests/              # 单元测试
+├── .vscode/               # VSCode 配置
+│   └── launch.json         # 扩展调试配置
 └── docs/                   # 文档
+    └── LEARNING_NOTES.md  # 学习笔记
 ```
 
 ---
@@ -342,6 +330,31 @@ VibeWatcher/
 | [v0.3.0](https://github.com/yandexuanxuan/VibeWatcher/releases/tag/v0.3.0) | 2026-05-12 | 卡死检测、AI 解读、CI/CD、npm workspaces 共享类型、Jest 版本统一 |
 | [v0.2.0](https://github.com/yandexuanxuan/VibeWatcher/releases/tag/v0.2.0) | 2026-05-12 | 执行摘要、预测耗时、移动通知、迷你面板、VSCode WebSocket 重连 |
 | [v0.1.0](https://github.com/yandexuanxuan/VibeWatcher/releases/tag/v0.1.0) | 2026-05-12 | 基础功能：CLI + Server + VSCode Extension |
+
+---
+
+## TODO（后续迭代方向）
+
+> 以下为 v1.0 之后的潜在优化方向，按优先级排序。功能性已完整，可按需迭代。
+
+### 高优先级
+| 事项 | 说明 | 涉及模块 |
+|------|------|----------|
+| `vibe init` 配置引导 | 新用户首次使用的配置引导，降低上手成本 | vibewatcher-cli |
+| 测试覆盖率提升 | 补充 `cli.ts` 等未覆盖模块的测试 | vibewatcher-cli |
+
+### 中优先级
+| 事项 | 说明 | 涉及模块 |
+|------|------|----------|
+| 配置验证与错误提示 | `config.json` 格式校验、字段类型检查、友好的错误信息 | vibewatcher-server |
+| `vibe config validate` 命令 | 验证配置文件合法性 | vibewatcher-cli |
+
+### 低优先级
+| 事项 | 说明 | 涉及模块 |
+|------|------|----------|
+| 日志系统 | DEBUG/INFO/WARN 级别控制，便于问题排查 | 全局 |
+| WebSocket 重连策略 | 指数退避重连，提升网络波动时的鲁棒性 | vibewatcher-vscode |
+| StateStore 持久化 | 任务状态定期落盘，防止服务崩溃丢失状态 | vibewatcher-server |
 
 ---
 
