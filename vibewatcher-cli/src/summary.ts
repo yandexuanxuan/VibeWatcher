@@ -101,6 +101,25 @@ export function extractKeyword(input: string): string {
     if (match) return match[0].toLowerCase();
   }
 
+  // 优先匹配复杂动词（放在简单动词之后）
+  const priorityPatterns = [
+    /\boptimiz(?:e|ing|ed)\b/i,
+    /\bclean(?:ing|ed)?\b/i,
+    /\bdup(?:licat|ing|ed)?\b/i,
+    /\bmerg(?:e|ing|ed)\b/i,
+    /\bspli(?:t|ting)\b/i,
+    /\bstructur(?:e|ing|ed)\b/i,
+    /\banalyz(?:e|ing|ed)\b/i,
+    /\baudit(?:ing|ed)?\b/i,
+    /\breleas(?:e|ing|ed)\b/i,
+    /\bpublish(?:ing|ed)?\b/i,
+  ];
+
+  for (const pattern of priorityPatterns) {
+    const match = input.match(pattern);
+    if (match) return match[0].toLowerCase();
+  }
+
   return 'general';
 }
 
