@@ -4,17 +4,23 @@
 
 CLAUDE_CODE_BIN=""
 
-# Find the real claude-code binary
+# Find the real claude-code binary (may also be named "claude")
 for p in $(echo $PATH | tr ':' '\n'); do
-  if [ -x "$p/claude-code" ] && [ "$p" != "$(dirname "$0")" ]; then
-    CLAUDE_CODE_BIN="$p/claude-code"
-    break
+  if [ "$p" != "$(dirname "$0")" ]; then
+    if [ -x "$p/claude-code" ]; then
+      CLAUDE_CODE_BIN="$p/claude-code"
+      break
+    elif [ -x "$p/claude" ]; then
+      CLAUDE_CODE_BIN="$p/claude"
+      break
+    fi
   fi
 done
 
 # Fallback: common locations
 if [ -z "$CLAUDE_CODE_BIN" ]; then
-  for path in "/usr/local/bin/claude-code" "$HOME/.local/bin/claude-code" "$HOME/.npm-global/bin/claude-code"; do
+  for path in "/usr/local/bin/claude-code" "$HOME/.local/bin/claude-code" "$HOME/.npm-global/bin/claude-code" \
+              "/usr/local/bin/claude" "$HOME/.local/bin/claude" "$HOME/.npm-global/bin/claude"; do
     if [ -x "$path" ]; then
       CLAUDE_CODE_BIN="$path"
       break

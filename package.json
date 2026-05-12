@@ -14,5 +14,10 @@
     "test": "cd vibewatcher-cli && npm test && cd ../vibewatcher-server && npm test && cd ../vibewatcher-vscode && npm test",
     "clean": "rm -rf vibewatcher-shared/dist vibewatcher-cli/dist vibewatcher-server/dist vibewatcher-vscode/out",
     "setup": "bash setup-auto.sh"
+  },
+  "dependencies": {
+    "ws": "^8.20.0",
+    "uuid": "^9.0.0",
+    "yargs": "^17.7.2"
   }
 }

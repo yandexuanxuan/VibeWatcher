@@ -130,6 +130,12 @@ EOF
     # Create symlink to node_modules from the original project
     ln -sf "$SCRIPT_DIR/node_modules" "$BIN_DIR/node_modules"
 
+    # Copy CLI dist files (vibewatch script expects ../dist/cli.js)
+    local DIST_DIR="$INSTALL_DIR/dist"
+    mkdir -p "$DIST_DIR"
+    cp "$SCRIPT_DIR/vibewatcher-cli/dist/"*.js "$DIST_DIR/"
+    ln -sf "$SCRIPT_DIR/node_modules" "$DIST_DIR/node_modules"
+
     # Copy CLI wrapper scripts
     cp "$SCRIPT_DIR/vibewatcher-cli/bin/vibewatch" "$BIN_DIR/vibewatch"
     cp "$SCRIPT_DIR/vibewatcher-cli/bin/claude-code" "$BIN_DIR/claude-code"

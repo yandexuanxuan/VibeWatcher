@@ -58,6 +58,9 @@ check_server_binary() {
 cmd_start() {
     mkdir -p "$PID_DIR" "$LOG_DIR"
 
+    # Auto-clean old summaries on start
+    cmd_cleanup 3 2>/dev/null || true
+
     if is_running; then
         local pid=$(read_pid)
         log_info "Server already running (PID: $pid)"
@@ -153,6 +156,26 @@ cmd_tail() {
     fi
 }
 
+cmd_cleanup() {
+    local days="${1:-7}"
+    local summaries_dir="$INSTALL_DIR/summaries"
+
+    if [ ! -d "$summaries_dir" ]; then
+        log_info "No summaries directory found"
+        return 0
+    fi
+
+    local count=$(find "$summaries_dir" -name "*.md" -mtime +"$days" | wc -l)
+
+    if [ "$count" -eq 0 ]; then
+        log_info "No summaries older than ${days} days to clean"
+        return 0
+    fi
+
+    find "$summaries_dir" -name "*.md" -mtime +"$days" -delete
+    log_info "Cleaned $count summaries older than ${days} days"
+}
+
 # Show usage
 usage() {
     cat << EOF
@@ -167,6 +190,7 @@ Commands:
     status             Show server status
     log                Show recent server logs
     tail               Follow server logs (Ctrl+C to exit)
+    cleanup [days]     Delete summaries older than N days (default: 7)
     --if-not-running   Start only if not already running
 
 Examples:
@@ -200,6 +224,9 @@ case "${1:-}" in
         ;;
     tail)
         cmd_tail
+        ;;
+    cleanup)
+        cmd_cleanup "$2"
         ;;
     -h|--help|help)
         usage
